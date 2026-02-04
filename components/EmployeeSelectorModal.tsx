@@ -8,9 +8,10 @@ interface EmployeeSelectorModalProps {
   onClose: () => void;
   onSelect: (employeeIds: string[]) => void;
   initialSelectedIds?: string[];
+  filterTask?: string; // New Prop
 }
 
-const EmployeeSelectorModal: React.FC<EmployeeSelectorModalProps> = ({ isOpen, onClose, onSelect, initialSelectedIds = [] }) => {
+const EmployeeSelectorModal: React.FC<EmployeeSelectorModalProps> = ({ isOpen, onClose, onSelect, initialSelectedIds = [], filterTask }) => {
   const [searchTerm, setSearchTerm] = useState('');
   // We track selected Record IDs internally to distinguish between different assessments for the same person
   const [selectedRecordIds, setSelectedRecordIds] = useState<Set<string>>(new Set());
@@ -21,8 +22,9 @@ const EmployeeSelectorModal: React.FC<EmployeeSelectorModalProps> = ({ isOpen, o
       return periods.sort().reverse(); // Show latest first
   }, []);
 
-  // Generate derived tasks (In a real app, this would come from the backend. Here we mock it based on period)
+  // Generate derived tasks
   const allTasks = useMemo(() => {
+      // Mock logic: combine period + " 绩效考核" to mimic tasks
       const tasks = Array.from(new Set(MOCK_PERFORMANCE_RECORDS.map(r => `${r.period} 绩效考核`)));
       return tasks.sort().reverse();
   }, []);
@@ -30,7 +32,7 @@ const EmployeeSelectorModal: React.FC<EmployeeSelectorModalProps> = ({ isOpen, o
   const availableGrades = ['S', 'A', 'B', 'C', 'D'];
 
   // Filter States
-  const [selectedPeriod, setSelectedPeriod] = useState<string>(allPeriods[0] || '');
+  const [selectedPeriod, setSelectedPeriod] = useState<string>('');
   const [selectedTask, setSelectedTask] = useState<string>('');
   const [selectedGrade, setSelectedGrade] = useState<string>('');
   const [minScore, setMinScore] = useState<string>('');
@@ -39,24 +41,40 @@ const EmployeeSelectorModal: React.FC<EmployeeSelectorModalProps> = ({ isOpen, o
   // Sync state when modal opens
   useEffect(() => {
     if (isOpen) {
+      setSearchTerm('');
+      setSelectedGrade('');
+      setMinScore('');
+      setMaxScore('');
+      
+      // If filterTask is provided (e.g. from NewInterviewModal), use it
+      if (filterTask) {
+          setSelectedTask(filterTask);
+          // Try to derive period from task string for consistency (optional)
+          const derivedPeriod = allPeriods.find(p => filterTask.includes(p));
+          if (derivedPeriod) setSelectedPeriod(derivedPeriod);
+      } else {
+          setSelectedTask('');
+          if(allPeriods.length > 0) setSelectedPeriod(allPeriods[0]);
+      }
+
+      // Restore selections
       const initialRecords = new Set<string>();
       if (initialSelectedIds.length > 0) {
           initialSelectedIds.forEach(empId => {
-              // Try to find a record for this employee in the default/current period
-              const rec = MOCK_PERFORMANCE_RECORDS.find(r => r.employeeId === empId && r.period === (selectedPeriod || allPeriods[0]));
+              // Try to find a record for this employee.
+              // If we have a filterTask, use it to narrow down the record.
+              // Otherwise pick the latest.
+              const targetPeriod = filterTask 
+                  ? (allPeriods.find(p => filterTask.includes(p)) || allPeriods[0]) 
+                  : (selectedPeriod || allPeriods[0]);
+
+              const rec = MOCK_PERFORMANCE_RECORDS.find(r => r.employeeId === empId && r.period === targetPeriod);
               if (rec) initialRecords.add(rec.id);
           });
       }
       setSelectedRecordIds(initialRecords);
-      setSearchTerm('');
-      setSelectedGrade('');
-      setSelectedTask('');
-      setMinScore('');
-      setMaxScore('');
-      // Default to the latest period
-      if(allPeriods.length > 0) setSelectedPeriod(allPeriods[0]);
     }
-  }, [isOpen, initialSelectedIds, allPeriods]);
+  }, [isOpen, initialSelectedIds, filterTask, allPeriods]);
 
   if (!isOpen) return null;
 
@@ -65,7 +83,7 @@ const EmployeeSelectorModal: React.FC<EmployeeSelectorModalProps> = ({ isOpen, o
       const employee = MOCK_EMPLOYEES.find(e => e.id === record.employeeId);
       return {
           ...record,
-          taskName: `${record.period} 绩效考核`, // Mock Task Name
+          taskName: `${record.period} 绩效考核`, // Mock Task Name Mapping
           employee
       };
   }).filter(item => !!item.employee); // Ensure employee exists
@@ -134,7 +152,9 @@ const EmployeeSelectorModal: React.FC<EmployeeSelectorModalProps> = ({ isOpen, o
         <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center bg-gray-50">
           <div>
             <h2 className="text-lg font-bold text-gray-800">选择面谈对象</h2>
-            <p className="text-sm text-gray-500 mt-0.5">请选择需要进行面谈的考核任务。</p>
+            <p className="text-sm text-gray-500 mt-0.5">
+                {filterTask ? `当前已锁定任务：${filterTask}` : '请选择需要进行面谈的考核任务。'}
+            </p>
           </div>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
             <X size={20} />
@@ -144,35 +164,43 @@ const EmployeeSelectorModal: React.FC<EmployeeSelectorModalProps> = ({ isOpen, o
         {/* Filter Bar */}
         <div className="px-6 py-3 bg-white border-b border-gray-100 flex flex-wrap items-center gap-3">
              
-             {/* Period Selector */}
-             <div className="flex items-center space-x-2 bg-gray-50 rounded-lg px-2 py-1 border border-gray-200">
-                 <Calendar size={14} className="text-gray-400" />
-                 <span className="text-xs font-medium text-gray-600">周期:</span>
-                 <select 
-                    value={selectedPeriod}
-                    onChange={(e) => setSelectedPeriod(e.target.value)}
-                    className="bg-transparent border-none text-gray-700 text-sm focus:ring-0 p-1 cursor-pointer font-medium w-24"
-                 >
-                     {allPeriods.map(p => (
-                         <option key={p} value={p}>{p}</option>
-                     ))}
-                     <option value="">全部</option>
-                 </select>
-             </div>
-
              {/* Task Selector */}
              <div className="flex items-center space-x-2 bg-gray-50 rounded-lg px-2 py-1 border border-gray-200">
                  <Briefcase size={14} className="text-gray-400" />
                  <span className="text-xs font-medium text-gray-600">任务:</span>
                  <select 
                     value={selectedTask}
-                    onChange={(e) => setSelectedTask(e.target.value)}
-                    className="bg-transparent border-none text-gray-700 text-sm focus:ring-0 p-1 cursor-pointer font-medium max-w-[150px] truncate"
+                    onChange={(e) => {
+                        setSelectedTask(e.target.value);
+                        // Auto update period if possible
+                        const derivedPeriod = allPeriods.find(p => e.target.value.includes(p));
+                        if(derivedPeriod) setSelectedPeriod(derivedPeriod);
+                        else if (e.target.value === '') setSelectedPeriod('');
+                    }}
+                    disabled={!!filterTask} // Disable if passed from parent
+                    className={`bg-transparent border-none text-gray-700 text-sm focus:ring-0 p-1 cursor-pointer font-medium max-w-[180px] truncate ${filterTask ? 'opacity-70 cursor-not-allowed' : ''}`}
                  >
                      <option value="">全部任务</option>
                      {allTasks.map(t => (
                          <option key={t} value={t}>{t}</option>
                      ))}
+                 </select>
+             </div>
+
+             {/* Period Selector (Derived mostly) */}
+             <div className="flex items-center space-x-2 bg-gray-50 rounded-lg px-2 py-1 border border-gray-200 opacity-80">
+                 <Calendar size={14} className="text-gray-400" />
+                 <span className="text-xs font-medium text-gray-600">周期:</span>
+                 <select 
+                    value={selectedPeriod}
+                    onChange={(e) => setSelectedPeriod(e.target.value)}
+                    disabled={!!selectedTask || !!filterTask} // Usually locked by Task
+                    className="bg-transparent border-none text-gray-700 text-sm focus:ring-0 p-1 cursor-not-allowed font-medium w-24"
+                 >
+                     {allPeriods.map(p => (
+                         <option key={p} value={p}>{p}</option>
+                     ))}
+                     <option value="">全部</option>
                  </select>
              </div>
 

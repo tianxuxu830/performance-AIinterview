@@ -95,7 +95,10 @@ export interface InterviewSession {
   deadline?: string;
   gradeTag?: string; 
   department?: string; 
-  riskTag?: 'high_risk' | 'controversial' | 'normal'; 
+  riskTag?: 'high_risk' | 'controversial' | 'normal';
+  // New configuration fields
+  requireConfirmation?: boolean;
+  signatureType?: 'confirmation' | 'handwritten' | 'electronic'; 
 }
 
 export interface AssessmentItem {
@@ -168,4 +171,14 @@ export interface AssessmentDetail {
   kpiWeight?: number;
   okrs?: OKRItem[];
   kpis?: KPIItem[];
+}
+
+export interface Notification {
+  id: string;
+  targetRole: 'HR' | 'Employee';
+  type: 'system' | 'task' | 'alert';
+  title: string;
+  content: string;
+  time: string;
+  read: boolean;
 }

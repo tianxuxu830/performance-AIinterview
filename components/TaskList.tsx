@@ -1,7 +1,8 @@
+
 import React from 'react';
 import { 
   Calendar, Edit3, Clock, User, ArrowRight, 
-  MessageSquare, Video, AlertCircle 
+  MessageSquare, Video, AlertCircle, CheckSquare 
 } from 'lucide-react';
 import { InterviewSession, Status } from '../types';
 
@@ -114,8 +115,5 @@ const TaskList: React.FC<TaskListProps> = ({ sessions, onSchedule, onDirectFeedb
     </div>
   );
 };
-
-// Import helper for icon
-import { CheckSquare } from 'lucide-react';
 
 export default TaskList;

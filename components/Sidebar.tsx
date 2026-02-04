@@ -11,7 +11,8 @@ import {
   ChevronDown,
   Menu,
   ListTodo,
-  MessageSquare
+  MessageSquare,
+  FolderOpen
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -91,8 +92,8 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, currentRol
     },
     { 
         id: 'archives', 
-        icon: Users, 
-        label: '归档中心', 
+        icon: FolderOpen, 
+        label: '绩效档案', 
         roles: ['HR'] 
     },
     { 

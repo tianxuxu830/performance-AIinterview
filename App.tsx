@@ -7,27 +7,33 @@ import InterviewForm from './components/InterviewForm';
 import InterviewExecution from './components/InterviewExecution';
 import InterviewScheduler from './components/InterviewScheduler';
 import ScheduleMeetingModal from './components/ScheduleMeetingModal'; 
-import TemplateConfigPage from './components/TemplateModal'; // Reusing file but acting as Page
+import TemplateConfigPage from './components/TemplateModal'; 
 import AssessmentList from './components/AssessmentList';
 import NewInterviewModal from './components/NewInterviewModal';
 import TaskList from './components/TaskList'; 
 import EmployeeTaskTable from './components/EmployeeTaskTable'; 
 import EmployeeDashboard from './components/EmployeeDashboard';
 import SystemSettings from './components/SystemSettings';
-import { InterviewSession, Status, InterviewType } from './types';
+import PerformanceArchives from './components/PerformanceArchives';
+import { InterviewSession, Status, InterviewType, Notification } from './types';
 import { MOCK_SESSIONS, MOCK_EMPLOYEES } from './constants';
 
 function App() {
-  const [userRole, setUserRole] = useState<'HR' | 'Employee'>('Employee'); // Default to Employee based on latest request context
+  const [userRole, setUserRole] = useState<'HR' | 'Employee'>('Employee'); 
   const [activePage, setActivePage] = useState('dashboard'); 
   
   const [sessions, setSessions] = useState<InterviewSession[]>(MOCK_SESSIONS);
   const [selectedSession, setSelectedSession] = useState<InterviewSession | null>(null);
   
-  // View Modes: list, detail, execution, schedule (legacy full page)
+  // Notification State
+  const [notifications, setNotifications] = useState<Notification[]>([
+      { id: 'n1', targetRole: 'Employee', type: 'system', title: '系统通知', content: '欢迎使用智慧绩效面谈模块', time: '1小时前', read: false },
+      { id: 'n2', targetRole: 'HR', type: 'task', title: '待办提醒', content: '您有 3 个面谈任务即将截止', time: '2小时前', read: false }
+  ]);
+  
+  // View Modes: list, detail, execution, schedule
   const [viewMode, setViewMode] = useState<'list' | 'detail' | 'execution' | 'schedule'>('list');
 
-  // Removed isTemplateModalOpen state
   const [isScheduleModalOpen, setScheduleModalOpen] = useState(false);
   const [scheduleTargetSession, setScheduleTargetSession] = useState<InterviewSession | null>(null);
 
@@ -38,7 +44,6 @@ function App() {
 
   const handleRoleChange = (role: 'HR' | 'Employee') => {
       setUserRole(role);
-      // Reset active page to a safe default for that role to avoid dead ends
       if (role === 'HR') {
           setActivePage('assessments');
       } else {
@@ -48,10 +53,36 @@ function App() {
       setSelectedSession(null);
   };
 
+  const handleMarkNotificationRead = (id: string) => {
+      setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
+  };
+
+  const handleNotificationClick = (notification: Notification) => {
+      // 1. Mark as read
+      handleMarkNotificationRead(notification.id);
+
+      // 2. Navigate based on target Role and Context
+      if (notification.targetRole === 'Employee') {
+          setUserRole('Employee');
+          // Navigate to "Employee Side - To Do - Performance Interview"
+          setActivePage('todo_interviews');
+          setViewMode('list');
+      } else {
+          setUserRole('HR');
+          // For Manager/HR notifications about Interviews, go to the Interview Management List
+          if (notification.title.includes('面谈') || notification.content.includes('面谈')) {
+              setActivePage('interviews');
+          } else {
+              setActivePage('dashboard');
+          }
+          setViewMode('list');
+      }
+  };
+
   // Handlers
   const handleInitiateInterviewFromAssessment = (employeeIds: string[]) => {
       setNewInterviewInitialEmployees(employeeIds);
-      setNewInterviewDefaultTopic('业绩考核5月'); // Default Topic when initiating from Assessment
+      setNewInterviewDefaultTopic('业绩考核5月'); 
       setIsNewInterviewModalOpen(true);
   };
 
@@ -60,7 +91,6 @@ function App() {
       const employeeIds = data.employeeIds || [];
       const targetIds = employeeIds.length > 0 ? employeeIds : [MOCK_EMPLOYEES[0].id];
 
-      // Map role to specific mock manager name for demo purposes
       const managerNameMap = {
           'manager': '张伟 (直属上级)',
           'hrbp': 'Lisa (HRBP)',
@@ -68,6 +98,9 @@ function App() {
           'skip_manager': '赵总 (隔级上级)'
       }[data.interviewerRole as string] || '张伟';
 
+      const extractedPeriod = data.assessmentTask ? data.assessmentTask.split(' ')[0] + ' ' + data.assessmentTask.split(' ')[1] : '2025 Q4';
+
+      // 1. Create Sessions
       targetIds.forEach((empId: string) => {
           const emp = MOCK_EMPLOYEES.find(e => e.id === empId);
           if (emp) {
@@ -77,25 +110,55 @@ function App() {
                   employeeName: emp.name,
                   managerName: managerNameMap, 
                   date: '', 
-                  period: data.topic || '日常面谈', // Use the submitted topic
-                  assessmentCycle: data.assessmentCycle,
+                  period: data.topic || '日常面谈', 
+                  assessmentCycle: extractedPeriod, 
                   status: Status.NotStarted,
                   type: InterviewType.Regular,
                   templateId: data.templateId,
-                  linkedAssessmentId: undefined, // Manual creation usually doesn't link unless specified
+                  linkedAssessmentId: undefined, 
                   schedulingStatus: 'pending',
                   deadline: data.deadline,
-                  method: 'appointment' // Default to appointment for new tasks
+                  method: 'appointment', 
+                  requireConfirmation: data.requireConfirmation,
+                  signatureType: data.signatureType
               };
               newSessions.push(newSession);
           }
       });
 
       setSessions(prev => [...newSessions, ...prev]);
-      alert(`已创建 ${newSessions.length} 个待排期面谈任务，已同步至【绩效面谈管理】及【待办】列表。`);
+
+      // 2. Create Notifications
+      const newNotificationsList: Notification[] = [];
+      
+      // Notify Employees (Target) - Inform them about the process
+      newNotificationsList.push({
+          id: `notif_${Date.now()}_emp`,
+          targetRole: 'Employee',
+          type: 'task',
+          title: '绩效面谈已启动',
+          content: `您的【${data.topic}】任务已下发。系统已通知面谈官 ${managerNameMap} 在截止日期 ${data.deadline} 前为您安排面谈时间并完成反馈，请留意后续待办通知。`,
+          time: '刚刚',
+          read: false
+      });
+
+      // Notify Manager (Initiator) - Explicit instruction to schedule and feedback
+      newNotificationsList.push({
+          id: `notif_${Date.now()}_mgr`,
+          targetRole: 'HR', // Visible to HR/Manager
+          type: 'alert', // Use alert to highlight urgency
+          title: '面谈安排任务提醒',
+          content: `请注意：您需要在截止日期 ${data.deadline} 前，尽快为 ${targetIds.length} 位员工预约【${data.topic}】面谈时间，并完成面谈反馈填写。`,
+          time: '刚刚',
+          read: false
+      });
+
+      setNotifications(prev => [...newNotificationsList, ...prev]);
+
+      alert(`已创建 ${newSessions.length} 个待排期面谈任务。已向相关员工及面谈官发送通知。`);
   };
 
-  // Schedule Logic (Option A)
+  // Schedule Logic
   const handleOpenScheduleModal = (session: InterviewSession) => {
       setScheduleTargetSession(session);
       setScheduleModalOpen(true);
@@ -108,8 +171,8 @@ function App() {
               schedulingStatus: 'scheduled' as const, 
               date: data.date + ' ' + data.time,
               period: data.topic,
-              status: Status.NotStarted, // Stays NotStarted until meeting actually happens
-              method: 'appointment' // Ensure method is set to appointment
+              status: Status.NotStarted, 
+              method: 'appointment' 
           };
 
           const updatedSessions = sessions.map(s => 
@@ -119,36 +182,30 @@ function App() {
           );
           setSessions(updatedSessions);
           
-          // Close modal
           setScheduleModalOpen(false);
           setScheduleTargetSession(null);
 
-          // Auto-navigate to Detail Page
           setSelectedSession(updatedSessionData);
           setViewMode('detail');
-          // For Employee view, we stick to the todo page usually, but for demo continuity:
           if (userRole === 'HR') setActivePage('interviews');
           else setActivePage('todo_interviews'); 
       }
   };
 
-  // Direct Feedback Logic (Option B)
   const handleDirectFeedback = (session: InterviewSession) => {
-      // 1. Update session status to InProgress immediately
       const updatedSessions = sessions.map(s => 
           s.id === session.id 
           ? { 
               ...s, 
               status: Status.InProgress,
-              schedulingStatus: 'scheduled' as const, // Treat as scheduled/active
-              date: new Date().toISOString().split('T')[0], // Set today as "date" since we are doing it now
-              method: 'direct' as const // Set method to direct
+              schedulingStatus: 'scheduled' as const, 
+              date: new Date().toISOString().split('T')[0], 
+              method: 'direct' as const 
             } 
           : s
       );
       setSessions(updatedSessions);
       
-      // 2. Navigate to Interview Form
       const updatedSession = updatedSessions.find(s => s.id === session.id);
       if (updatedSession) {
           setSelectedSession(updatedSession);
@@ -158,7 +215,6 @@ function App() {
       }
   };
 
-  // Submit Feedback Logic (Manager submits to Employee)
   const handleSubmitFeedback = () => {
       if (selectedSession) {
           const updatedSessions = sessions.map(s => 
@@ -169,19 +225,15 @@ function App() {
           setSessions(updatedSessions);
           
           alert('已提交给员工确认！');
-          
-          // Optionally update selected session to reflect status immediately if we stay on page,
-          // but usually we go back or refresh. Here we go back to list for clarity.
           setSelectedSession(null);
           setViewMode('list');
       }
   };
 
-  // Employee Task Action Handler
   const handleEmployeeTaskAction = (task: any, actionType?: 'schedule' | 'feedback') => {
       if (activePage === 'todo_interviews') {
           let session = sessions.find(s => s.id === task.id) || sessions.find(s => s.employeeName === task.employee);
-          if (!session) session = sessions[0]; // Fallback for mock demo
+          if (!session) session = sessions[0]; 
           
           if (actionType === 'schedule') {
               handleOpenScheduleModal(session);
@@ -222,9 +274,11 @@ function App() {
       setViewMode('list');
   };
 
-  // Router Logic
+  const handleCancelSession = (sessionId: string) => {
+      setSessions(prev => prev.filter(s => s.id !== sessionId));
+  };
+
   const renderContent = () => {
-    // Dashboard Logic
     if (activePage === 'dashboard') {
         if (userRole === 'Employee') {
             return (
@@ -240,7 +294,6 @@ function App() {
                 />
             );
         }
-        // Fallback or HR Dashboard could go here
         return (
             <div className="flex items-center justify-center h-full text-gray-400 bg-white">
                 <div className="text-center">
@@ -251,7 +304,6 @@ function App() {
         );
     }
 
-    // HR Pages
     if (activePage === 'settings') {
         return <SystemSettings onNavigate={setActivePage} />;
     }
@@ -271,6 +323,10 @@ function App() {
         );
     }
 
+    if (activePage === 'archives') {
+        return <PerformanceArchives />;
+    }
+
     if (activePage === 'interviews') {
         if (viewMode === 'execution' && selectedSession) {
             return <InterviewExecution session={selectedSession} onEndMeeting={handleEndMeeting} />;
@@ -283,7 +339,7 @@ function App() {
                 onBack={handleBackToInterviewList} 
                 onStart={handleStartInterview}
                 onSubmitFeedback={handleSubmitFeedback}
-                onChangeSession={handleSelectSession} // Allow switching sessions from within detail view
+                onChangeSession={handleSelectSession} 
              />
           );
         }
@@ -301,14 +357,13 @@ function App() {
                 onOpenTemplates={() => setActivePage('template_config')}
                 onScheduleSession={handleOpenScheduleModal}
                 onDirectFeedback={handleDirectFeedback}
+                onCancelSession={handleCancelSession}
             />
           </>
         );
     }
     
-    // Employee Pages
     if (activePage === 'todo_plans' || activePage === 'todo_interviews' || activePage === 'todo_reviews') {
-        // Reuse Detail View for Interviews inside Employee Todo
         if (activePage === 'todo_interviews' && viewMode === 'detail' && selectedSession) {
              return (
                 <InterviewForm 
@@ -334,7 +389,6 @@ function App() {
         );
     }
 
-    // Default Fallback
     return (
         <div className="flex items-center justify-center h-full text-gray-400 bg-white">
           <div className="text-center">
@@ -346,7 +400,6 @@ function App() {
     );
   };
 
-  // Helper to check if we are in full screen mode (detail or execution)
   const isFullScreenMode = viewMode === 'execution' || viewMode === 'detail';
 
   return (
@@ -367,6 +420,9 @@ function App() {
             <TopNav 
                 currentRole={userRole} 
                 onRoleChange={handleRoleChange} 
+                notifications={notifications}
+                onMarkRead={handleMarkNotificationRead}
+                onNotificationClick={handleNotificationClick}
             />
         )}
         

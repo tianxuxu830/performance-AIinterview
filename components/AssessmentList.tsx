@@ -2,9 +2,10 @@
 import React, { useState } from 'react';
 import { 
     Search, ChevronDown, CheckCircle2, Clock, MoreHorizontal, 
-    User, MessageSquarePlus, Calendar, AlertCircle, Video, 
+    User, MessageSquarePlus, Calendar as CalendarIcon, AlertCircle, Video, 
     FileText, Trash2, Download, Archive, Edit3,
-    TrendingUp, TrendingDown, Minus, PieChart, Users, Bell
+    TrendingUp, TrendingDown, Minus, PieChart, Users, Bell,
+    Briefcase, PlayCircle, CheckCircle
 } from 'lucide-react';
 import { MOCK_ASSESSMENTS, MOCK_PERFORMANCE_TRENDS, MOCK_EMPLOYEES } from '../constants';
 import { InterviewSession, Status } from '../types';
@@ -32,6 +33,14 @@ const AssessmentList: React.FC<AssessmentListProps> = ({ onInitiateInterview, se
       completed: contextSessions.filter(s => s.status === Status.Completed).length,
       inProgress: contextSessions.filter(s => s.status === Status.InProgress || s.status === Status.PendingConfirmation).length,
       notStarted: contextSessions.filter(s => s.status === Status.NotStarted).length,
+  };
+
+  // Calculate Rates for Chart
+  const totalSafe = stats.total || 1; // Avoid division by zero
+  const rates = {
+      completed: (stats.completed / totalSafe) * 100,
+      inProgress: (stats.inProgress / totalSafe) * 100,
+      notStarted: (stats.notStarted / totalSafe) * 100,
   };
 
   const steps = [
@@ -242,6 +251,7 @@ const AssessmentList: React.FC<AssessmentListProps> = ({ onInitiateInterview, se
   );
 
   const renderInterviewTable = () => {
+      // NOTE: This empty state is theoretically unreachable if the tab is hidden when empty
       if (contextSessions.length === 0) {
           return (
               <div className="flex flex-col items-center justify-center py-20 bg-white border border-gray-200 rounded-lg shadow-sm h-full">
@@ -416,7 +426,7 @@ const AssessmentList: React.FC<AssessmentListProps> = ({ onInitiateInterview, se
                                                         {session.status === Status.NotStarted && (
                                                             <>
                                                                 <button className="w-full text-left px-4 py-2 hover:bg-gray-50 flex items-center transition-colors">
-                                                                    <Calendar size={14} className="mr-2 text-gray-400" /> 修改
+                                                                    <CalendarIcon size={14} className="mr-2 text-gray-400" /> 修改
                                                                 </button>
                                                                 <button className="w-full text-left px-4 py-2 hover:bg-gray-50 flex items-center transition-colors">
                                                                     <Trash2 size={14} className="mr-2 text-red-400" /> 取消
@@ -458,27 +468,6 @@ const AssessmentList: React.FC<AssessmentListProps> = ({ onInitiateInterview, se
       );
   }
 
-  // Component for Statistics Card
-  const StatCard = ({ label, value, color, icon: Icon }: { label: string, value: number, color: 'blue' | 'green' | 'orange' | 'gray', icon?: any }) => {
-      const colors = {
-          blue: 'bg-blue-50 text-blue-600 border-blue-100',
-          green: 'bg-green-50 text-green-600 border-green-100',
-          orange: 'bg-orange-50 text-orange-600 border-orange-100',
-          gray: 'bg-gray-100 text-gray-600 border-gray-200'
-      };
-      return (
-          <div className={`flex items-center justify-between p-4 rounded-xl border ${colors[color]} relative overflow-hidden group`}>
-              <div>
-                  <div className="text-xs font-medium opacity-80 mb-1">{label}</div>
-                  <div className="text-2xl font-bold">{value}</div>
-              </div>
-              <div className="absolute -right-3 -bottom-3 opacity-10 transform rotate-12 scale-150">
-                  {Icon ? <Icon size={64} fill="currentColor" /> : <Users size={64} fill="currentColor" />}
-              </div>
-          </div>
-      );
-  }
-
   return (
     <div className="flex flex-col h-full bg-gray-50 overflow-hidden">
       {/* Header Info */}
@@ -499,12 +488,15 @@ const AssessmentList: React.FC<AssessmentListProps> = ({ onInitiateInterview, se
                 考核管理
             </button>
            <button className="pb-3 text-sm font-medium text-gray-500 hover:text-gray-700">结果校准</button>
-           <button 
-                onClick={() => setActiveTab('interview')}
-                className={`pb-3 text-sm font-medium transition-colors ${activeTab === 'interview' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
-           >
-                绩效面谈
-           </button>
+           {/* Only show Interview Tab if there are sessions created for this cycle */}
+           {contextSessions.length > 0 && (
+               <button 
+                    onClick={() => setActiveTab('interview')}
+                    className={`pb-3 text-sm font-medium transition-colors ${activeTab === 'interview' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
+               >
+                    绩效面谈
+               </button>
+           )}
         </div>
       </div>
       
@@ -542,11 +534,68 @@ const AssessmentList: React.FC<AssessmentListProps> = ({ onInitiateInterview, se
 
       {/* Interview Statistics - Only visible in Interview Tab when there is data */}
       {activeTab === 'interview' && contextSessions.length > 0 && (
-          <div className="bg-white px-6 py-4 border-b border-gray-200 mb-4 shadow-sm grid grid-cols-4 gap-4">
-              <StatCard label="应面谈人数" value={stats.total} color="blue" icon={Users} />
-              <StatCard label="已完成" value={stats.completed} color="green" icon={CheckCircle2} />
-              <StatCard label="进行中" value={stats.inProgress} color="orange" icon={TrendingUp} />
-              <StatCard label="未开始" value={stats.notStarted} color="gray" icon={Clock} />
+          <div className="bg-white px-6 py-4 border-b border-gray-200 mb-4 shadow-sm flex flex-col md:flex-row gap-6">
+              {/* Stats Cards Grid */}
+              <div className="flex-1 grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="bg-gray-50/50 border border-gray-100 rounded-xl p-3.5 flex items-center transition-all hover:bg-gray-50 hover:shadow-sm">
+                      <div className="w-10 h-10 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center mr-3 shrink-0">
+                          <Briefcase size={18} />
+                      </div>
+                      <div>
+                          <div className="text-gray-500 text-xs font-medium mb-0.5">应面谈人数</div>
+                          <div className="text-xl font-bold text-gray-900">{stats.total}</div>
+                      </div>
+                  </div>
+                  
+                  <div className="bg-green-50/30 border border-green-100 rounded-xl p-3.5 flex items-center transition-all hover:bg-green-50/50 hover:shadow-sm">
+                      <div className="w-10 h-10 rounded-full bg-green-100 text-green-600 flex items-center justify-center mr-3 shrink-0">
+                          <CheckCircle size={18} />
+                      </div>
+                      <div>
+                          <div className="text-gray-500 text-xs font-medium mb-0.5">已完成</div>
+                          <div className="text-xl font-bold text-green-700">{stats.completed}</div>
+                      </div>
+                  </div>
+
+                  <div className="bg-blue-50/30 border border-blue-100 rounded-xl p-3.5 flex items-center transition-all hover:bg-blue-50/50 hover:shadow-sm">
+                      <div className="w-10 h-10 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center mr-3 shrink-0">
+                          <PlayCircle size={18} />
+                      </div>
+                      <div>
+                          <div className="text-gray-500 text-xs font-medium mb-0.5">进行中</div>
+                          <div className="text-xl font-bold text-blue-700">{stats.inProgress}</div>
+                      </div>
+                  </div>
+
+                  <div className="bg-gray-50/50 border border-gray-200 rounded-xl p-3.5 flex items-center transition-all hover:bg-gray-50 hover:shadow-sm">
+                      <div className="w-10 h-10 rounded-full bg-gray-100 text-gray-500 flex items-center justify-center mr-3 shrink-0">
+                          <CalendarIcon size={18} />
+                      </div>
+                      <div>
+                          <div className="text-gray-500 text-xs font-medium mb-0.5">未开始</div>
+                          <div className="text-xl font-bold text-gray-700">{stats.notStarted}</div>
+                      </div>
+                  </div>
+              </div>
+              
+              {/* Progress Chart Area */}
+              <div className="w-full md:w-64 border-t md:border-t-0 md:border-l border-gray-100 pt-4 md:pt-0 md:pl-6 flex flex-col justify-center">
+                 <div className="text-xs font-bold text-gray-500 mb-3 flex items-center">
+                     <PieChart size={14} className="mr-1.5 text-blue-500"/> 进度分布
+                 </div>
+                 {/* Stacked Bar */}
+                 <div className="h-4 w-full bg-gray-100 rounded-full overflow-hidden flex mb-3">
+                     <div className="bg-green-500 h-full transition-all duration-500" style={{ width: `${rates.completed}%` }} title={`已完成 ${Math.round(rates.completed)}%`}></div>
+                     <div className="bg-blue-500 h-full transition-all duration-500" style={{ width: `${rates.inProgress}%` }} title={`进行中 ${Math.round(rates.inProgress)}%`}></div>
+                     <div className="bg-gray-300 h-full transition-all duration-500" style={{ width: `${rates.notStarted}%` }} title={`未开始 ${Math.round(rates.notStarted)}%`}></div>
+                 </div>
+                 {/* Legend */}
+                 <div className="flex flex-wrap gap-x-3 gap-y-1 text-[10px] text-gray-500 font-medium">
+                     <div className="flex items-center"><div className="w-2 h-2 rounded-full bg-green-500 mr-1.5"></div>完成 {Math.round(rates.completed)}%</div>
+                     <div className="flex items-center"><div className="w-2 h-2 rounded-full bg-blue-500 mr-1.5"></div>进行 {Math.round(rates.inProgress)}%</div>
+                     <div className="flex items-center"><div className="w-2 h-2 rounded-full bg-gray-300 mr-1.5"></div>未开始 {Math.round(rates.notStarted)}%</div>
+                 </div>
+              </div>
           </div>
       )}
 
@@ -597,7 +646,7 @@ const AssessmentList: React.FC<AssessmentListProps> = ({ onInitiateInterview, se
                         </button>
                     )}
                     <button className="px-3 py-1.5 bg-white border border-gray-300 text-gray-600 text-sm rounded hover:bg-gray-50 flex items-center">
-                        <Calendar size={14} className="mr-1.5" /> 批量修改时间
+                        <CalendarIcon size={14} className="mr-1.5" /> 批量修改时间
                     </button>
                     <button className="px-3 py-1.5 bg-white border border-gray-300 text-gray-600 text-sm rounded hover:bg-gray-50 flex items-center">
                         <User size={14} className="mr-1.5" /> 批量更换面谈官

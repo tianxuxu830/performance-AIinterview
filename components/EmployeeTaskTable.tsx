@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Filter, Search, ChevronRight, Video, Edit3, Clock, CheckCircle } from 'lucide-react';
+import { Filter, Search, ChevronRight, Video, Edit3, Clock, CheckCircle, Bell, Calendar } from 'lucide-react';
 import { InterviewSession, Status } from '../types';
 
 interface EmployeeTaskTableProps {
@@ -133,25 +133,22 @@ const EmployeeTaskTable: React.FC<EmployeeTaskTableProps> = ({ type, onAction, s
     const renderAction = (task: any) => {
         if (type === 'interviews') {
             if (activeTab === 'schedule') {
+                 // UPDATED: Simulating Manager/Interviewer View -> Need to Schedule
                  return (
-                     <div className="relative flex justify-end">
-                         <button 
-                             onClick={(e) => handleActionClick(e, task)}
-                             className="text-primary hover:text-primary-700 text-xs font-medium border border-primary-200 bg-primary-50 px-3 py-1.5 rounded flex items-center transition-colors"
-                         >
-                             去安排 <ChevronRight size={12} className="ml-1" />
-                         </button>
-                         {openActionId === task.id && (
-                             <div className="absolute right-0 top-full mt-1 w-48 bg-white rounded-lg shadow-xl border border-gray-100 z-50 py-1 text-left animate-in fade-in zoom-in-95 z-[60]">
-                                 <button onClick={() => onAction(task.rawSession, 'schedule')} className="w-full text-left px-4 py-2 hover:bg-gray-50 flex items-center text-sm transition-colors text-gray-700">
-                                     <Video size={14} className="mr-2 text-blue-500"/> 预约会议
-                                 </button>
-                                 <button onClick={() => onAction(task.rawSession, 'feedback')} className="w-full text-left px-4 py-2 hover:bg-gray-50 flex items-center text-sm transition-colors text-gray-700">
-                                     <Edit3 size={14} className="mr-2 text-purple-500"/> 直接反馈
-                                 </button>
-                             </div>
-                         )}
-                     </div>
+                    <div className="flex justify-end space-x-2">
+                        <button 
+                            onClick={() => onAction(task.rawSession, 'schedule')} 
+                            className="text-primary hover:text-primary-700 text-xs font-medium border border-primary-200 bg-primary-50 px-3 py-1.5 rounded flex items-center transition-colors shadow-sm whitespace-nowrap"
+                        >
+                            <Calendar size={12} className="mr-1.5" /> 预约面谈
+                        </button>
+                        <button 
+                            onClick={() => onAction(task.rawSession, 'feedback')} 
+                            className="text-gray-600 hover:text-primary-600 text-xs font-medium border border-gray-200 bg-white px-3 py-1.5 rounded flex items-center transition-colors shadow-sm hover:bg-gray-50 whitespace-nowrap"
+                        >
+                            <Edit3 size={12} className="mr-1.5" /> 直接反馈
+                        </button>
+                    </div>
                  )
             }
             if (activeTab === 'start') {

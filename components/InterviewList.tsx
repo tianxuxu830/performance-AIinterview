@@ -1,9 +1,10 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Plus, Search, Clock, 
   Edit3, AlertCircle, ArrowRight, FileText, History, X, Bell,
-  Star, Paperclip, Table, Grid
+  Star, Paperclip, Table, Grid,
+  PieChart, Briefcase, CheckCircle, Calendar as CalendarIcon, PlayCircle, Trash2, MoreHorizontal, AlertTriangle
 } from 'lucide-react';
 import { InterviewSession, Status, InterviewType, HistoricalRecord } from '../types';
 import { MOCK_HISTORY_RECORDS, MOCK_TEMPLATES, MOCK_EMPLOYEES, MOCK_PERFORMANCE_RECORDS } from '../constants';
@@ -15,6 +16,7 @@ interface InterviewListProps {
   onOpenTemplates: () => void;
   onScheduleSession: (session: InterviewSession) => void;
   onDirectFeedback: (session: InterviewSession) => void;
+  onCancelSession: (sessionId: string) => void;
 }
 
 const InterviewList: React.FC<InterviewListProps> = ({ 
@@ -23,7 +25,8 @@ const InterviewList: React.FC<InterviewListProps> = ({
   onCreateNew, 
   onOpenTemplates, 
   onScheduleSession, 
-  onDirectFeedback 
+  onDirectFeedback,
+  onCancelSession
 }) => {
   type TabType = 'all' | 'schedule' | 'start' | 'feedback' | 'done';
   const [activeTab, setActiveTab] = useState<TabType>('all');
@@ -33,6 +36,34 @@ const InterviewList: React.FC<InterviewListProps> = ({
   // Interaction State
   const [showHistoryFor, setShowHistoryFor] = useState<string | null>(null); // employeeId
   const [showTemplateFor, setShowTemplateFor] = useState<string | null>(null); // templateId
+  const [openActionId, setOpenActionId] = useState<string | null>(null);
+
+  // Cancellation Modal State
+  const [cancelModalOpen, setCancelModalOpen] = useState(false);
+  const [sessionToCancel, setSessionToCancel] = useState<InterviewSession | null>(null);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+      const handleClickOutside = () => setOpenActionId(null);
+      window.addEventListener('click', handleClickOutside);
+      return () => window.removeEventListener('click', handleClickOutside);
+  }, []);
+
+  // --- Statistics Calculation ---
+  const stats = {
+      total: sessions.length,
+      completed: sessions.filter(s => s.status === Status.Completed).length,
+      inProgress: sessions.filter(s => s.status === Status.InProgress || s.status === Status.PendingConfirmation).length,
+      notStarted: sessions.filter(s => s.status === Status.NotStarted).length,
+  };
+  
+  // Calculate Rates for Chart
+  const totalSafe = stats.total || 1; // Avoid division by zero
+  const rates = {
+      completed: (stats.completed / totalSafe) * 100,
+      inProgress: (stats.inProgress / totalSafe) * 100,
+      notStarted: (stats.notStarted / totalSafe) * 100,
+  };
 
   // Filter Logic
   const filteredSessions = sessions.filter(session => {
@@ -115,6 +146,7 @@ const InterviewList: React.FC<InterviewListProps> = ({
 
   const handleRemind = (e: React.MouseEvent, session: InterviewSession) => {
       e.stopPropagation();
+      setOpenActionId(null);
       if (window.confirm(`确定要向 ${session.employeeName} 发送催办提醒吗？`)) {
           alert(`已成功发送催办提醒给 ${session.employeeName}`);
       }
@@ -125,6 +157,21 @@ const InterviewList: React.FC<InterviewListProps> = ({
       if (window.confirm(`确定要对选中的 ${selectedIds.size} 个任务进行批量催办吗？`)) {
           alert(`已成功发送 ${selectedIds.size} 条催办提醒`);
           setSelectedIds(new Set());
+      }
+  };
+
+  const handleCancelClick = (e: React.MouseEvent, session: InterviewSession) => {
+      e.stopPropagation();
+      setOpenActionId(null);
+      setSessionToCancel(session);
+      setCancelModalOpen(true);
+  };
+
+  const confirmCancel = () => {
+      if (sessionToCancel) {
+          onCancelSession(sessionToCancel.id);
+          setCancelModalOpen(false);
+          setSessionToCancel(null);
       }
   };
 
@@ -273,120 +320,174 @@ const InterviewList: React.FC<InterviewListProps> = ({
       const isPendingConfirmation = session.status === Status.PendingConfirmation;
       const isCompleted = session.status === Status.Completed;
 
+      interface ActionItem {
+          label: string;
+          onClick: (e: React.MouseEvent) => void;
+          variant?: 'primary' | 'danger' | 'default';
+      }
+
+      let actions: ActionItem[] = [];
+
       if (isPendingSchedule) {
-          return (
-              <div className="flex items-center justify-end space-x-2">
-                  <button 
-                    onClick={(e) => handleRemind(e, session)}
-                    className="p-1.5 text-gray-400 hover:text-orange-500 hover:bg-orange-50 rounded transition-colors" 
-                    title="催办"
-                  >
-                      <Bell size={14} />
-                  </button>
-                  <button 
-                      onClick={() => onScheduleSession(session)}
-                      className="text-primary hover:text-primary-700 font-medium text-xs px-2 py-1 rounded hover:bg-primary-50 transition-colors whitespace-nowrap"
-                  >
-                      预约会议
-                  </button>
-                  <button 
-                      onClick={() => onDirectFeedback(session)}
-                      className="text-gray-500 hover:text-primary-600 text-xs px-2 py-1 rounded hover:bg-gray-100 transition-colors whitespace-nowrap"
-                  >
-                      直接反馈
-                  </button>
-                  <button className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors" title="编辑信息">
-                      <Edit3 size={14} />
-                  </button>
-              </div>
-          );
+          actions = [
+              { label: '预约会议', onClick: () => onScheduleSession(session), variant: 'primary' },
+              { label: '直接反馈', onClick: () => onDirectFeedback(session), variant: 'default' },
+              { label: '催办', onClick: (e) => handleRemind(e, session), variant: 'default' },
+              { label: '取消', onClick: (e) => handleCancelClick(e, session), variant: 'danger' },
+          ];
+      } else if (isScheduled) {
+          actions = [
+              { label: '重新安排', onClick: () => onScheduleSession(session), variant: 'primary' },
+              { label: '直接反馈', onClick: () => onDirectFeedback(session), variant: 'default' },
+              { label: '取消', onClick: (e) => handleCancelClick(e, session), variant: 'danger' },
+          ];
+      } else if (isInProgress) {
+          actions = [
+              { label: '查看详情', onClick: () => onSelectSession(session), variant: 'primary' },
+          ];
+      } else if (isPendingConfirmation) {
+          actions = [
+              { label: '详情', onClick: () => onSelectSession(session), variant: 'default' },
+              { label: '直接确认', onClick: () => alert('已代确认'), variant: 'primary' },
+              { label: '催办', onClick: (e) => handleRemind(e, session), variant: 'default' },
+          ];
+      } else if (isCompleted) {
+          actions = [
+              { label: '查看详情', onClick: () => onSelectSession(session), variant: 'primary' },
+              { label: '再次发起', onClick: () => onCreateNew(), variant: 'default' },
+          ];
       }
 
-      if (isScheduled) {
-          return (
-              <div className="flex items-center justify-end space-x-2">
-                  <button 
-                      onClick={() => onScheduleSession(session)}
-                      className="text-primary hover:text-primary-700 font-medium text-xs px-2 py-1 rounded hover:bg-primary-50 transition-colors whitespace-nowrap"
-                  >
-                      重新安排
-                  </button>
-                  <div className="h-3 w-px bg-gray-200"></div>
-                  <button 
-                      onClick={() => onDirectFeedback(session)}
-                      className="text-gray-500 hover:text-primary-600 text-xs px-2 py-1 rounded hover:bg-gray-100 transition-colors whitespace-nowrap"
-                  >
-                      直接反馈
-                  </button>
-              </div>
-          );
-      }
+      const visibleActions = actions.slice(0, 2);
+      const hiddenActions = actions.slice(2);
 
-      if (isInProgress) {
-          return (
-               <div className="flex justify-end">
-                <button 
-                    onClick={() => onSelectSession(session)}
-                    className="text-blue-600 hover:text-blue-800 font-medium text-xs px-3 py-1.5 bg-blue-50 rounded hover:bg-blue-100 transition-colors whitespace-nowrap flex items-center"
-                >
-                    查看详情
-                </button>
-               </div>
-          );
-      }
-
-      if (isPendingConfirmation) {
-          return (
-              <div className="flex items-center justify-end space-x-2">
-                  <button 
-                    onClick={(e) => handleRemind(e, session)}
-                    className="p-1.5 text-gray-400 hover:text-orange-500 hover:bg-orange-50 rounded transition-colors" 
-                    title="催办确认"
+      return (
+          <div className="flex items-center justify-end space-x-3 text-xs">
+              {visibleActions.map((action, idx) => (
+                  <button
+                      key={idx}
+                      onClick={action.onClick}
+                      className={`font-medium whitespace-nowrap transition-colors ${
+                          action.variant === 'primary' ? 'text-primary hover:text-primary-700' :
+                          action.variant === 'danger' ? 'text-gray-500 hover:text-red-600' :
+                          'text-gray-500 hover:text-gray-800'
+                      }`}
                   >
-                      <Bell size={14} />
+                      {action.label}
                   </button>
-                  <button 
-                      className="text-green-600 hover:text-green-700 text-xs font-medium px-2 py-1 rounded hover:bg-green-50 transition-colors whitespace-nowrap"
-                      onClick={() => alert('已代确认')}
-                  >
-                      直接确认
-                  </button>
-                  <div className="h-3 w-px bg-gray-200"></div>
-                  <button 
-                    onClick={() => onSelectSession(session)}
-                    className="text-gray-500 hover:text-gray-800 font-medium text-xs px-2 py-1 rounded hover:bg-gray-100 transition-colors whitespace-nowrap"
-                >
-                    详情
-                </button>
-              </div>
-          );
-      }
+              ))}
+              
+              {(visibleActions.length > 0 && hiddenActions.length > 0) && (
+                  <div className="w-px h-3 bg-gray-300"></div>
+              )}
 
-      if (isCompleted) {
-          return (
-              <div className="flex items-center justify-end space-x-2">
-                <button 
-                    onClick={() => onCreateNew()} 
-                    className="text-gray-500 hover:text-primary-600 text-xs px-2 py-1 rounded hover:bg-gray-100 transition-colors whitespace-nowrap"
-                >
-                    再次发起
-                </button>
-                <div className="h-3 w-px bg-gray-200"></div>
-                <button 
-                    onClick={() => onSelectSession(session)}
-                    className="text-blue-600 hover:text-blue-800 font-medium text-xs px-2 py-1 rounded hover:bg-blue-50 transition-colors whitespace-nowrap"
-                >
-                    查看详情
-                </button>
-              </div>
-          );
-      }
+              {hiddenActions.length > 0 && (
+                  <div className="relative">
+                      <button 
+                          onClick={(e) => {
+                              e.stopPropagation();
+                              setOpenActionId(openActionId === session.id ? null : session.id);
+                          }}
+                          className={`p-1 rounded-md hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors ${openActionId === session.id ? 'bg-gray-100 text-gray-600' : ''}`}
+                      >
+                          <MoreHorizontal size={16} />
+                      </button>
 
-      return null;
+                      {openActionId === session.id && (
+                          <>
+                              <div className="fixed inset-0 z-40" onClick={() => setOpenActionId(null)}></div>
+                              <div className="absolute right-0 top-full mt-1 w-24 bg-white rounded-lg shadow-xl border border-gray-100 z-50 py-1 text-xs text-gray-700 animate-in fade-in zoom-in-95 duration-100 origin-top-right">
+                                  {hiddenActions.map((action, idx) => (
+                                      <button 
+                                          key={idx}
+                                          onClick={(e) => {
+                                              action.onClick(e);
+                                              setOpenActionId(null);
+                                          }}
+                                          className={`w-full text-left px-4 py-2 hover:bg-gray-50 block transition-colors ${
+                                              action.variant === 'danger' ? 'text-red-600 hover:bg-red-50' : 'text-gray-700'
+                                          }`}
+                                      >
+                                          {action.label}
+                                      </button>
+                                  ))}
+                              </div>
+                          </>
+                      )}
+                  </div>
+              )}
+          </div>
+      );
   };
 
   return (
     <div className="p-6 h-full flex flex-col bg-white relative">
+      
+      {/* 1. Statistics Panel */}
+      <div className="bg-white border border-gray-200 rounded-xl p-5 mb-6 shadow-sm flex flex-col md:flex-row gap-6">
+          {/* Stats Cards Grid */}
+          <div className="flex-1 grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="bg-gray-50/50 border border-gray-100 rounded-xl p-3.5 flex items-center transition-all hover:bg-gray-50 hover:shadow-sm">
+                  <div className="w-10 h-10 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center mr-3 shrink-0">
+                      <Briefcase size={18} />
+                  </div>
+                  <div>
+                      <div className="text-gray-500 text-xs font-medium mb-0.5">任务总数</div>
+                      <div className="text-xl font-bold text-gray-900">{stats.total}</div>
+                  </div>
+              </div>
+              
+              <div className="bg-green-50/30 border border-green-100 rounded-xl p-3.5 flex items-center transition-all hover:bg-green-50/50 hover:shadow-sm">
+                  <div className="w-10 h-10 rounded-full bg-green-100 text-green-600 flex items-center justify-center mr-3 shrink-0">
+                      <CheckCircle size={18} />
+                  </div>
+                  <div>
+                      <div className="text-gray-500 text-xs font-medium mb-0.5">已完成</div>
+                      <div className="text-xl font-bold text-green-700">{stats.completed}</div>
+                  </div>
+              </div>
+
+              <div className="bg-blue-50/30 border border-blue-100 rounded-xl p-3.5 flex items-center transition-all hover:bg-blue-50/50 hover:shadow-sm">
+                  <div className="w-10 h-10 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center mr-3 shrink-0">
+                      <PlayCircle size={18} />
+                  </div>
+                  <div>
+                      <div className="text-gray-500 text-xs font-medium mb-0.5">进行中</div>
+                      <div className="text-xl font-bold text-blue-700">{stats.inProgress}</div>
+                  </div>
+              </div>
+
+              <div className="bg-gray-50/50 border border-gray-200 rounded-xl p-3.5 flex items-center transition-all hover:bg-gray-50 hover:shadow-sm">
+                  <div className="w-10 h-10 rounded-full bg-gray-100 text-gray-500 flex items-center justify-center mr-3 shrink-0">
+                      <CalendarIcon size={18} />
+                  </div>
+                  <div>
+                      <div className="text-gray-500 text-xs font-medium mb-0.5">待开始</div>
+                      <div className="text-xl font-bold text-gray-700">{stats.notStarted}</div>
+                  </div>
+              </div>
+          </div>
+          
+          {/* Progress Chart Area */}
+          <div className="w-full md:w-64 border-t md:border-t-0 md:border-l border-gray-100 pt-4 md:pt-0 md:pl-6 flex flex-col justify-center">
+             <div className="text-xs font-bold text-gray-500 mb-3 flex items-center">
+                 <PieChart size={14} className="mr-1.5 text-blue-500"/> 进度分布
+             </div>
+             {/* Stacked Bar */}
+             <div className="h-4 w-full bg-gray-100 rounded-full overflow-hidden flex mb-3">
+                 <div className="bg-green-500 h-full transition-all duration-500" style={{ width: `${rates.completed}%` }} title={`已完成 ${Math.round(rates.completed)}%`}></div>
+                 <div className="bg-blue-500 h-full transition-all duration-500" style={{ width: `${rates.inProgress}%` }} title={`进行中 ${Math.round(rates.inProgress)}%`}></div>
+                 <div className="bg-gray-300 h-full transition-all duration-500" style={{ width: `${rates.notStarted}%` }} title={`未开始 ${Math.round(rates.notStarted)}%`}></div>
+             </div>
+             {/* Legend */}
+             <div className="flex flex-wrap gap-x-3 gap-y-1 text-[10px] text-gray-500 font-medium">
+                 <div className="flex items-center"><div className="w-2 h-2 rounded-full bg-green-500 mr-1.5"></div>完成 {Math.round(rates.completed)}%</div>
+                 <div className="flex items-center"><div className="w-2 h-2 rounded-full bg-blue-500 mr-1.5"></div>进行 {Math.round(rates.inProgress)}%</div>
+                 <div className="flex items-center"><div className="w-2 h-2 rounded-full bg-gray-300 mr-1.5"></div>未开始 {Math.round(rates.notStarted)}%</div>
+             </div>
+          </div>
+      </div>
+
       {/* Top Header Section */}
       <div className="flex flex-col mb-4">
         {/* Tabs */}
@@ -660,6 +761,53 @@ const InterviewList: React.FC<InterviewListProps> = ({
                   {/* Footer */}
                   <div className="px-6 py-4 border-t border-gray-200 bg-white flex justify-end">
                       <button onClick={() => setShowTemplateFor(null)} className="px-6 py-2 bg-gray-100 rounded-lg text-sm font-medium hover:bg-gray-200 text-gray-700 transition-colors">关闭</button>
+                  </div>
+              </div>
+          </div>
+      )}
+
+      {/* Cancellation Confirmation Modal */}
+      {cancelModalOpen && sessionToCancel && (
+          <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in">
+              <div className="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden transform transition-all scale-100">
+                  <div className="p-6">
+                      <div className="flex items-center space-x-3 mb-4">
+                          <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center text-red-600 shrink-0">
+                              <AlertTriangle size={20} />
+                          </div>
+                          <h3 className="text-lg font-bold text-gray-900">确认取消面谈?</h3>
+                      </div>
+                      
+                      <div className="bg-gray-50 rounded-lg p-4 mb-4 border border-gray-100">
+                          <div className="grid grid-cols-2 gap-2 text-sm">
+                              <div className="text-gray-500">面谈对象:</div>
+                              <div className="font-medium text-gray-800">{sessionToCancel.employeeName}</div>
+                              <div className="text-gray-500">面谈主题:</div>
+                              <div className="font-medium text-gray-800">{sessionToCancel.period}</div>
+                          </div>
+                      </div>
+
+                      <p className="text-sm text-gray-500 leading-relaxed">
+                          取消后，该任务将从列表中移除，且无法恢复。面谈对象和面谈官将收到取消通知。
+                      </p>
+                  </div>
+                  
+                  <div className="px-6 py-4 bg-gray-50 flex justify-end space-x-3 border-t border-gray-100">
+                      <button 
+                          onClick={() => {
+                              setCancelModalOpen(false);
+                              setSessionToCancel(null);
+                          }}
+                          className="px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors"
+                      >
+                          暂不取消
+                      </button>
+                      <button 
+                          onClick={confirmCancel}
+                          className="px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 shadow-sm transition-colors"
+                      >
+                          确认取消
+                      </button>
                   </div>
               </div>
           </div>

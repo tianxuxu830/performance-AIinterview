@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Calendar, User, ChevronRight, Users, Clock, FileText, Grip, Layers } from 'lucide-react';
+import { X, Calendar, User, ChevronRight, Users, Clock, FileText, Grip, Layers, Settings, PenLine, FileSignature, CheckCircle2, AlertCircle } from 'lucide-react';
 import { MOCK_EMPLOYEES, MOCK_TEMPLATES } from '../constants';
 import EmployeeSelectorModal from './EmployeeSelectorModal';
 
@@ -19,16 +19,22 @@ const NewInterviewModal: React.FC<NewInterviewModalProps> = ({
   initialEmployeeIds = [],
   defaultTopic = '绩效面谈'
 }) => {
+  const [sourceType, setSourceType] = useState<'assessment' | 'independent'>('assessment');
   const [selectedEmployeeIds, setSelectedEmployeeIds] = useState<string[]>([]);
   const [selectedTemplate, setSelectedTemplate] = useState<string>(MOCK_TEMPLATES[0].id);
   const [deadline, setDeadline] = useState(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]);
   const [topic, setTopic] = useState(defaultTopic);
-  const [assessmentCycle, setAssessmentCycle] = useState('2025 Q4');
+  const [assessmentTask, setAssessmentTask] = useState('2025 Q4 绩效考核');
   const [interviewerRole, setInterviewerRole] = useState('manager');
+  
+  // New Configuration States
+  const [requireConfirmation, setRequireConfirmation] = useState(true);
+  const [signatureType, setSignatureType] = useState<'confirmation' | 'handwritten' | 'electronic'>('confirmation');
+
   const [isSelectorOpen, setIsSelectorOpen] = useState(false);
 
   // Resize State
-  const [dimensions, setDimensions] = useState({ width: 1000, height: 720 });
+  const [dimensions, setDimensions] = useState({ width: 800, height: 850 }); 
   const isResizing = useRef(false);
   const startPos = useRef({ x: 0, y: 0, w: 0, h: 0 });
   const modalRef = useRef<HTMLDivElement>(null);
@@ -40,22 +46,34 @@ const NewInterviewModal: React.FC<NewInterviewModalProps> = ({
     { value: 'skip_manager', label: '隔级上级' }
   ];
 
-  const ASSESSMENT_CYCLES = [
-      '2025 Q4',
-      '2025 Q3',
-      '2025 Q2',
-      '2025 Q1',
-      '试用期评估'
+  const ASSESSMENT_TASKS = [
+      '2025 Q4 绩效考核',
+      '2025 Q3 绩效考核',
+      '2025 Q2 绩效考核',
+      '2025 Q1 绩效考核',
+      '2025 试用期评估'
   ];
 
   useEffect(() => {
     if (isOpen) {
+      setSourceType('assessment'); // Default to assessment
       setSelectedEmployeeIds(initialEmployeeIds);
       setTopic(defaultTopic);
       setInterviewerRole('manager');
-      setAssessmentCycle('2025 Q4');
+      setAssessmentTask('2025 Q4 绩效考核');
+      setRequireConfirmation(true);
+      setSignatureType('confirmation');
     } 
   }, [isOpen, initialEmployeeIds, defaultTopic]);
+
+  // Auto-update topic when assessment task changes if source is assessment
+  useEffect(() => {
+      if (sourceType === 'assessment' && assessmentTask) {
+          setTopic(`${assessmentTask} 面谈`);
+      } else if (sourceType === 'independent' && topic.includes('考核')) {
+          setTopic('日常辅导面谈');
+      }
+  }, [assessmentTask, sourceType]);
 
   // Resize Logic
   useEffect(() => {
@@ -65,7 +83,6 @@ const NewInterviewModal: React.FC<NewInterviewModalProps> = ({
       const deltaX = e.clientX - startPos.current.x;
       const deltaY = e.clientY - startPos.current.y;
       
-      // Since it is centered, we multiply delta by 2 to keep the cursor on the handle roughly
       setDimensions({
           width: Math.max(600, startPos.current.w + deltaX * 2),
           height: Math.max(500, startPos.current.h + deltaY * 2)
@@ -130,142 +147,195 @@ const NewInterviewModal: React.FC<NewInterviewModalProps> = ({
             </button>
           </div>
 
-          <div className="flex-1 p-6 overflow-y-auto custom-scrollbar">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="flex-1 p-8 overflow-y-auto custom-scrollbar">
+              <div className="space-y-6 max-w-3xl mx-auto">
                 
-                  {/* Employee Selection - Full Width */}
-                  <div className="md:col-span-2">
-                      <label className="block text-sm font-bold text-gray-700 mb-2">面谈对象</label>
-                      <div 
-                        onClick={() => setIsSelectorOpen(true)}
-                        className="w-full border border-gray-300 rounded-lg p-3 cursor-pointer hover:border-blue-400 hover:bg-blue-50/30 transition-all group bg-white"
-                      >
-                        {isBatch ? (
-                          <div className="flex items-center justify-between">
-                              <div className="flex items-center text-blue-700">
-                                <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center mr-3">
-                                    <Users size={20} />
-                                </div>
-                                <div>
-                                    <div className="text-sm font-bold">已选择 {selectedEmployeeIds.length} 名员工</div>
-                                    <div className="text-xs text-blue-500 mt-0.5">点击修改人员名单</div>
-                                </div>
-                              </div>
-                              <div className="flex -space-x-2 overflow-hidden">
-                                  {selectedEmployeeIds.slice(0, 4).map(id => {
-                                      const emp = MOCK_EMPLOYEES.find(e => e.id === id);
-                                      return emp ? (
-                                          <img key={id} src={emp.avatar} className="inline-block h-8 w-8 rounded-full ring-2 ring-white" alt=""/>
-                                      ) : null;
-                                  })}
-                              </div>
-                          </div>
-                        ) : singleEmployee ? (
-                          <div className="flex items-center justify-between">
-                              <div className="flex items-center">
-                                <div className="w-10 h-10 rounded-full bg-gray-200 overflow-hidden mr-3">
-                                    <img src={singleEmployee.avatar} alt="" className="w-full h-full object-cover"/>
-                                </div>
-                                <div>
-                                    <div className="text-sm font-bold text-gray-900">{singleEmployee.name}</div>
-                                    <div className="text-xs text-gray-500">{singleEmployee.department} • {singleEmployee.role}</div>
-                                </div>
-                              </div>
-                              <ChevronRight size={16} className="text-gray-400" />
-                          </div>
-                        ) : (
-                          <div className="flex items-center text-gray-400 py-1">
-                              <User size={18} className="mr-2" />
-                              <span className="text-sm">点击选择员工...</span>
-                              <ChevronRight size={16} className="ml-auto opacity-50" />
-                          </div>
-                        )}
+                  {/* 1. Source Type */}
+                  <div className="grid grid-cols-4 items-center gap-4">
+                      <label className="text-sm font-medium text-gray-700 text-right">
+                          <span className="text-red-500 mr-1">*</span>面谈来源类型
+                      </label>
+                      <div className="col-span-3 flex items-center space-x-6">
+                          <label className="flex items-center cursor-pointer">
+                              <input 
+                                type="radio" 
+                                className="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500"
+                                checked={sourceType === 'assessment'}
+                                onChange={() => setSourceType('assessment')}
+                              />
+                              <span className="ml-2 text-sm text-gray-700">考核</span>
+                          </label>
+                          <label className="flex items-center cursor-pointer">
+                              <input 
+                                type="radio" 
+                                className="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500"
+                                checked={sourceType === 'independent'}
+                                onChange={() => setSourceType('independent')}
+                              />
+                              <span className="ml-2 text-sm text-gray-700">独立</span>
+                          </label>
                       </div>
                   </div>
 
-                  {/* Topic Input - Full Width */}
-                  <div className="md:col-span-2">
-                      <label className="block text-sm font-bold text-gray-700 mb-2">面谈主题</label>
-                      <div className="relative">
+                  {/* 2. Assessment Task (Conditional) */}
+                  {sourceType === 'assessment' && (
+                      <div className="grid grid-cols-4 items-center gap-4 animate-in fade-in slide-in-from-top-2">
+                          <label className="text-sm font-medium text-gray-700 text-right">
+                              <span className="text-red-500 mr-1">*</span>关联考核任务
+                          </label>
+                          <div className="col-span-3">
+                              <div className="relative">
+                                <select 
+                                    className="w-full pl-3 pr-8 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 bg-white shadow-sm"
+                                    value={assessmentTask}
+                                    onChange={(e) => setAssessmentTask(e.target.value)}
+                                >
+                                    {ASSESSMENT_TASKS.map(task => (
+                                        <option key={task} value={task}>{task}</option>
+                                    ))}
+                                </select>
+                                <Layers className="absolute right-3 top-2.5 text-gray-400 pointer-events-none" size={16} />
+                              </div>
+                          </div>
+                      </div>
+                  )}
+
+                  {/* 3. Interview Target */}
+                  <div className="grid grid-cols-4 items-start gap-4">
+                      <label className="text-sm font-medium text-gray-700 text-right pt-2.5">
+                          <span className="text-red-500 mr-1">*</span>面谈对象
+                      </label>
+                      <div className="col-span-3">
+                          <div 
+                            onClick={() => setIsSelectorOpen(true)}
+                            className="w-full border border-gray-300 rounded-lg p-2.5 cursor-pointer hover:border-blue-400 hover:bg-blue-50/10 transition-all group bg-white shadow-sm flex justify-between items-center"
+                          >
+                            {isBatch ? (
+                                <div className="flex items-center text-blue-700">
+                                    <Users size={18} className="mr-2 text-blue-500" />
+                                    <span className="text-sm font-medium">已选择 {selectedEmployeeIds.length} 人</span>
+                                </div>
+                            ) : singleEmployee ? (
+                                <div className="flex items-center">
+                                    <img src={singleEmployee.avatar} alt="" className="w-6 h-6 rounded-full mr-2" />
+                                    <span className="text-sm font-medium text-gray-900">{singleEmployee.name}</span>
+                                    <span className="text-xs text-gray-500 ml-2">({singleEmployee.department})</span>
+                                </div>
+                            ) : (
+                                <span className="text-sm text-gray-400">请选择员工...</span>
+                            )}
+                            <ChevronRight size={16} className="text-gray-400 group-hover:text-blue-500" />
+                          </div>
+                      </div>
+                  </div>
+
+                  {/* 4. Topic */}
+                  <div className="grid grid-cols-4 items-center gap-4">
+                      <label className="text-sm font-medium text-gray-700 text-right">
+                          <span className="text-red-500 mr-1">*</span>面谈主题
+                      </label>
+                      <div className="col-span-3">
                           <input 
                               type="text" 
-                              className="w-full pl-9 pr-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500"
+                              className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 shadow-sm"
                               value={topic}
                               onChange={(e) => setTopic(e.target.value)}
-                              placeholder="请输入面谈主题"
+                              placeholder="请输入面谈名称"
                           />
-                          <FileText className="absolute left-3 top-2.5 text-gray-400" size={16} />
                       </div>
                   </div>
 
-                  {/* Assessment Cycle Selection - Half Width */}
-                  <div>
-                      <label className="block text-sm font-bold text-gray-700 mb-2">关联考核周期</label>
-                      <div className="relative">
-                        <select 
-                            className="w-full pl-9 pr-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 bg-white"
-                            value={assessmentCycle}
-                            onChange={(e) => setAssessmentCycle(e.target.value)}
-                        >
-                            {ASSESSMENT_CYCLES.map(cycle => (
-                                <option key={cycle} value={cycle}>{cycle}</option>
-                            ))}
-                        </select>
-                        <Layers className="absolute left-3 top-2.5 text-gray-400" size={16} />
+                  {/* 5. Template */}
+                  <div className="grid grid-cols-4 items-center gap-4">
+                      <label className="text-sm font-medium text-gray-700 text-right">
+                          <span className="text-red-500 mr-1">*</span>面谈模板
+                      </label>
+                      <div className="col-span-3">
+                          <select 
+                              className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 bg-white shadow-sm"
+                              value={selectedTemplate}
+                              onChange={(e) => setSelectedTemplate(e.target.value)}
+                          >
+                              {MOCK_TEMPLATES.map(t => (
+                                  <option key={t.id} value={t.id}>{t.name}</option>
+                              ))}
+                          </select>
                       </div>
                   </div>
 
-                  {/* Template Selection - Half Width */}
-                  <div>
-                      <label className="block text-sm font-bold text-gray-700 mb-2">评估模板</label>
-                      <select 
-                          className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 bg-white"
-                          value={selectedTemplate}
-                          onChange={(e) => setSelectedTemplate(e.target.value)}
-                      >
-                          {MOCK_TEMPLATES.map(t => (
-                              <option key={t.id} value={t.id}>{t.name}</option>
-                          ))}
-                      </select>
-                  </div>
-
-                  {/* Interviewer Selection - Half Width */}
-                  <div>
-                      <label className="block text-sm font-bold text-gray-700 mb-2">面谈官</label>
-                      <select 
-                          className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 bg-white"
-                          value={interviewerRole}
-                          onChange={(e) => setInterviewerRole(e.target.value)}
-                      >
-                          {INTERVIEWER_ROLES.map(role => (
-                              <option key={role.value} value={role.value}>{role.label}</option>
-                          ))}
-                      </select>
-                  </div>
-
-                  {/* Deadline - Half Width */}
-                  <div>
-                      <label className="block text-sm font-bold text-gray-700 mb-2">面谈截止时间</label>
-                      <div className="relative">
-                          <input 
-                              type="date" 
-                              className="w-full pl-9 pr-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500"
-                              value={deadline}
-                              onChange={(e) => setDeadline(e.target.value)}
-                          />
-                          <Clock className="absolute left-3 top-2.5 text-gray-400" size={16} />
+                  {/* 6. Interviewer */}
+                  <div className="grid grid-cols-4 items-center gap-4">
+                      <label className="text-sm font-medium text-gray-700 text-right">
+                          <span className="text-red-500 mr-1">*</span>面谈官
+                      </label>
+                      <div className="col-span-3">
+                          <select 
+                              className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 bg-white shadow-sm"
+                              value={interviewerRole}
+                              onChange={(e) => setInterviewerRole(e.target.value)}
+                          >
+                              {INTERVIEWER_ROLES.map(role => (
+                                  <option key={role.value} value={role.value}>{role.label}</option>
+                              ))}
+                          </select>
                       </div>
                   </div>
-                  
-                  {/* Info Box - Full Width */}
-                  <div className="md:col-span-2">
-                    <div className="bg-blue-50 p-4 rounded-lg border border-blue-100 flex items-start text-sm text-blue-700 leading-relaxed">
-                        <span className="mr-2 text-lg">📢</span>
-                        <p>
-                            任务发起后，将通知面谈官。面谈官可根据情况选择<strong>“预约在线会议”</strong>或<strong>“直接填写反馈”</strong>。
-                        </p>
-                    </div>
+
+                  {/* 7. Deadline */}
+                  <div className="grid grid-cols-4 items-center gap-4">
+                      <label className="text-sm font-medium text-gray-700 text-right">
+                          <span className="text-red-500 mr-1">*</span>面谈截止时间
+                      </label>
+                      <div className="col-span-3">
+                          <div className="relative">
+                              <input 
+                                  type="date" 
+                                  className="w-full pl-3 pr-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 shadow-sm"
+                                  value={deadline}
+                                  onChange={(e) => setDeadline(e.target.value)}
+                              />
+                              <Calendar className="absolute right-3 top-2.5 text-gray-400 pointer-events-none" size={16} />
+                          </div>
+                      </div>
                   </div>
+
+                  {/* 8. Confirmation Config */}
+                  <div className="grid grid-cols-4 items-start gap-4 pt-2">
+                      <label className="text-sm font-medium text-gray-700 text-right pt-1">
+                          <span className="text-red-500 mr-1">*</span>是否员工确认
+                      </label>
+                      <div className="col-span-3 space-y-4">
+                          <button 
+                              onClick={() => setRequireConfirmation(!requireConfirmation)}
+                              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${requireConfirmation ? 'bg-blue-600' : 'bg-gray-200'}`}
+                          >
+                              <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform shadow-sm ${requireConfirmation ? 'translate-x-6' : 'translate-x-1'}`} />
+                          </button>
+
+                          {requireConfirmation && (
+                              <div className="bg-gray-50 p-4 rounded-lg border border-gray-200 animate-in fade-in slide-in-from-top-1">
+                                  <div className="flex items-center mb-3">
+                                      <span className="text-sm font-bold text-gray-700 mr-4">确认方式:</span>
+                                  </div>
+                                  <div className="flex flex-wrap gap-3">
+                                      <label className={`flex items-center cursor-pointer px-3 py-2 rounded-md border text-sm transition-all ${signatureType === 'confirmation' ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50'}`}>
+                                          <input type="radio" name="sigType" className="hidden" checked={signatureType === 'confirmation'} onChange={() => setSignatureType('confirmation')} />
+                                          <CheckCircle2 size={16} className="mr-2" /> 仅确认
+                                      </label>
+                                      <label className={`flex items-center cursor-pointer px-3 py-2 rounded-md border text-sm transition-all ${signatureType === 'handwritten' ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50'}`}>
+                                          <input type="radio" name="sigType" className="hidden" checked={signatureType === 'handwritten'} onChange={() => setSignatureType('handwritten')} />
+                                          <PenLine size={16} className="mr-2" /> 手写签
+                                      </label>
+                                      <label className={`flex items-center cursor-pointer px-3 py-2 rounded-md border text-sm transition-all ${signatureType === 'electronic' ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50'}`}>
+                                          <input type="radio" name="sigType" className="hidden" checked={signatureType === 'electronic'} onChange={() => setSignatureType('electronic')} />
+                                          <FileSignature size={16} className="mr-2" /> 电子签
+                                      </label>
+                                  </div>
+                              </div>
+                          )}
+                      </div>
+                  </div>
+
               </div>
           </div>
 
@@ -283,15 +353,18 @@ const NewInterviewModal: React.FC<NewInterviewModalProps> = ({
                       templateId: selectedTemplate, 
                       deadline, 
                       topic,
-                      assessmentCycle,
+                      assessmentTask: sourceType === 'assessment' ? assessmentTask : undefined, 
+                      sourceType,
                       interviewerRole,
+                      requireConfirmation,
+                      signatureType,
                       status: 'NotStarted',
-                      schedulingStatus: 'pending' // Defaults to pending
+                      schedulingStatus: 'pending' 
                   });
                   onClose();
               }}
               disabled={selectedEmployeeIds.length === 0 || !deadline || !topic}
-              className="px-5 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm transition-colors"
+              className="px-6 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm transition-colors"
             >
               {isBatch ? `批量发起 (${selectedEmployeeIds.length})` : '发起任务'}
             </button>
@@ -315,6 +388,7 @@ const NewInterviewModal: React.FC<NewInterviewModalProps> = ({
             setIsSelectorOpen(false);
         }}
         initialSelectedIds={selectedEmployeeIds}
+        filterTask={sourceType === 'assessment' ? assessmentTask : undefined}
       />
     </>
   );
