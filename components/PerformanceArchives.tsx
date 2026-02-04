@@ -1,142 +1,171 @@
 
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { 
     Search, Filter, ChevronRight, Download, Eye, 
     User, Settings, ChevronDown, MoreHorizontal,
     Maximize2, SlidersHorizontal, ChevronLeft, AlertCircle,
-    CheckCircle2, Clock, FileText, Building2
+    CheckCircle2, Clock, FileText, Building2,
+    TrendingUp, TrendingDown, Minus, BarChart2
 } from 'lucide-react';
 import { MOCK_EMPLOYEES } from '../constants';
+import EmployeeArchiveDrawer from './EmployeeArchiveDrawer';
 
 const PerformanceArchives: React.FC = () => {
     const [activeTab, setActiveTab] = useState<'tasks' | 'objects'>('tasks');
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+    
+    // State for Archive Drawer
+    const [isArchiveDrawerOpen, setIsArchiveDrawerOpen] = useState(false);
+    const [selectedEmployeeForArchive, setSelectedEmployeeForArchive] = useState<any>(null);
+
+    // State for Floating Trend Tooltip
+    const [trendTooltip, setTrendTooltip] = useState<{ item: any; rect: DOMRect } | null>(null);
+    const trendTimeoutRef = useRef<number | null>(null);
 
     // --- Mock Data ---
 
-    // Mock Data for "By Assessment Object" (按考核对象 - Employee Assessment Records)
-    // Updated to match the new column specification
+    // Mock Data for "By Assessment Object" (按考核对象 - Employee Aggregated Archive)
     const objectData = [
         { 
-            id: 'r1', 
+            id: 'e1', 
             name: '李莎', 
             empId: 'GH00027', 
-            deptPath: '产研中心/产品部/B端产品组', 
+            avatar: 'https://picsum.photos/id/64/100/100',
+            dept: '产研中心/产品部', 
             position: '高级产品经理', 
-            cycle: '2025-06', 
-            taskName: '2025 Q2 产研中心绩效考核', 
-            score: '92.5', 
-            grade: 'A', 
-            interviewStatus: 'completed', 
-            interviewCount: 1, 
-            lastInterviewDate: '2025-07-10', 
-            isOrgAssessment: false 
+            level: 'P7',
+            cycleCount: 8, 
+            latestCycle: '2025 Q2 绩效考核', 
+            latestScore: '92.5', 
+            latestGrade: 'A',
+            trend: 'up',
+            interviewCount: 8,
+            trendHistory: [
+                { period: '24Q4', score: 88 },
+                { period: '25Q1', score: 90 },
+                { period: '25Q2', score: 92.5 }
+            ]
         },
         { 
-            id: 'r2', 
+            id: 'e2', 
             name: '王森', 
             empId: 'GH00035', 
-            deptPath: '营销中心/销售部/华南大区', 
+            avatar: 'https://picsum.photos/id/91/100/100',
+            dept: '营销中心/销售部', 
             position: '销售总监', 
-            cycle: '2025-06', 
-            taskName: '2025 Q2 销售业绩冲刺考核', 
-            score: '98.0', 
-            grade: 'S', 
-            interviewStatus: 'completed', 
-            interviewCount: 2, 
-            lastInterviewDate: '2025-07-12', 
-            isOrgAssessment: false 
+            level: 'M2',
+            cycleCount: 12, 
+            latestCycle: '2025 Q2 绩效考核', 
+            latestScore: '98.0', 
+            latestGrade: 'S',
+            trend: 'stable',
+            interviewCount: 12,
+            trendHistory: [
+                { period: '24Q4', score: 98 },
+                { period: '25Q1', score: 97.5 },
+                { period: '25Q2', score: 98 }
+            ]
         },
         { 
-            id: 'r3', 
+            id: 'e3', 
             name: '张妮', 
             empId: 'GH00102', 
-            deptPath: '职能中心/人力资源部', 
+            avatar: 'https://picsum.photos/id/177/100/100',
+            dept: '职能中心/人力资源部', 
             position: 'HRBP', 
-            cycle: '2025-06', 
-            taskName: '2025 Q2 职能部门绩效', 
-            score: '85.0', 
-            grade: 'B+', 
-            interviewStatus: 'pending', 
-            interviewCount: 0, 
-            lastInterviewDate: '-', 
-            isOrgAssessment: false 
+            level: 'P6',
+            cycleCount: 5, 
+            latestCycle: '2025 Q2 绩效考核', 
+            latestScore: '85.0', 
+            latestGrade: 'B+',
+            trend: 'down',
+            interviewCount: 5,
+            trendHistory: [
+                { period: '24Q4', score: 88 },
+                { period: '25Q1', score: 86 },
+                { period: '25Q2', score: 85 }
+            ]
         },
         { 
-            id: 'r4', 
+            id: 'e4', 
             name: '陈飞', 
             empId: 'GH00338', 
-            deptPath: '产研中心/云演示组', 
+            avatar: 'https://picsum.photos/id/338/100/100',
+            dept: '产研中心/云演示组', 
             position: '工程师', 
-            cycle: '2025-06', 
-            taskName: '2025 Q2 产研中心绩效考核', 
-            score: '72.0', 
-            grade: 'C', 
-            interviewStatus: 'completed', 
-            interviewCount: 1, 
-            lastInterviewDate: '2025-07-15', 
-            isOrgAssessment: false 
+            level: 'P5',
+            cycleCount: 3, 
+            latestCycle: '2025 Q2 绩效考核', 
+            latestScore: '72.0', 
+            latestGrade: 'C',
+            trend: 'stable',
+            interviewCount: 3,
+            trendHistory: [
+                { period: '24Q4', score: 72 },
+                { period: '25Q1', score: 71.5 },
+                { period: '25Q2', score: 72 }
+            ]
         },
         { 
-            id: 'r5', 
-            name: '深圳直营办事处', 
-            empId: 'ORG001', 
-            deptPath: '营销中心/直营体系', 
-            position: '-', 
-            cycle: '2025-06', 
-            taskName: '2025 Q2 组织效能评估', 
-            score: '88.0', 
-            grade: 'B', 
-            interviewStatus: 'not_required', 
-            interviewCount: 0, 
-            lastInterviewDate: '-', 
-            isOrgAssessment: true 
-        },
-        { 
-            id: 'r6', 
-            name: '李莎', 
-            empId: 'GH00027', 
-            deptPath: '产研中心/产品部/B端产品组', 
-            position: '高级产品经理', 
-            cycle: '2025-03', 
-            taskName: '2025 Q1 产研中心绩效考核', 
-            score: '89.0', 
-            grade: 'A', 
-            interviewStatus: 'completed', 
-            interviewCount: 1, 
-            lastInterviewDate: '2025-04-10', 
-            isOrgAssessment: false 
-        },
-        { 
-            id: 'r7', 
-            name: '赵小云', 
-            empId: 'GH00451', 
-            deptPath: '产研中心/设计部', 
-            position: 'UI设计师', 
-            cycle: '2025-06', 
-            taskName: '2025 试用期转正评估', 
-            score: '90.5', 
-            grade: 'A', 
-            interviewStatus: 'completed', 
-            interviewCount: 1, 
-            lastInterviewDate: '2025-06-20', 
-            isOrgAssessment: false 
-        },
-        { 
-            id: 'r8', 
+            id: 'e5', 
             name: '刘强', 
             empId: 'GH00156', 
-            deptPath: '营销中心/市场部', 
+            avatar: 'https://picsum.photos/id/55/100/100',
+            dept: '营销中心/市场部', 
             position: '市场经理', 
-            cycle: '2025-06', 
-            taskName: '2025 Q2 市场推广专项考核', 
-            score: '60.0', 
-            grade: 'D', 
-            interviewStatus: 'pending', 
-            interviewCount: 0, 
-            lastInterviewDate: '-', 
-            isOrgAssessment: false 
+            level: 'M1',
+            cycleCount: 6, 
+            latestCycle: '2025 Q2 绩效考核', 
+            latestScore: '60.0', 
+            latestGrade: 'D',
+            trend: 'down',
+            interviewCount: 4,
+            trendHistory: [
+                { period: '24Q4', score: 75 },
+                { period: '25Q1', score: 68 },
+                { period: '25Q2', score: 60 }
+            ]
+        },
+        { 
+            id: 'e6', 
+            name: '赵小云', 
+            empId: 'GH00451', 
+            avatar: 'https://picsum.photos/id/12/100/100',
+            dept: '产研中心/设计部', 
+            position: 'UI设计师', 
+            level: 'P4',
+            cycleCount: 2, 
+            latestCycle: '2025 试用期转正评估', 
+            latestScore: '90.5', 
+            latestGrade: 'A',
+            trend: 'up',
+            interviewCount: 2,
+            trendHistory: [
+                { period: '入职', score: 80 },
+                { period: '转正', score: 85 },
+                { period: '25Q2', score: 90.5 }
+            ]
+        },
+        { 
+            id: 'e7', 
+            name: '孙敏', 
+            empId: 'GH00222', 
+            avatar: 'https://picsum.photos/id/32/100/100',
+            dept: '职能中心/财务部', 
+            position: '会计', 
+            level: 'P5',
+            cycleCount: 10, 
+            latestCycle: '2025 Q2 绩效考核', 
+            latestScore: '88.0', 
+            latestGrade: 'B+',
+            trend: 'stable',
+            interviewCount: 9,
+            trendHistory: [
+                { period: '24Q4', score: 88 },
+                { period: '25Q1', score: 87.5 },
+                { period: '25Q2', score: 88 }
+            ]
         },
     ];
 
@@ -226,6 +255,42 @@ const PerformanceArchives: React.FC = () => {
         setSelectedIds(newSelected);
     };
 
+    const handleViewArchive = (e: React.MouseEvent, employee: any) => {
+        e.stopPropagation();
+        setSelectedEmployeeForArchive(employee);
+        setIsArchiveDrawerOpen(true);
+        setTrendTooltip(null); // Close tooltip if open
+    };
+
+    // --- Trend Tooltip Handlers ---
+    const handleTrendMouseEnter = (e: React.MouseEvent, item: any) => {
+        if (trendTimeoutRef.current) {
+            clearTimeout(trendTimeoutRef.current);
+            trendTimeoutRef.current = null;
+        }
+        const rect = e.currentTarget.getBoundingClientRect();
+        setTrendTooltip({ item, rect });
+    };
+
+    const handleTrendMouseLeave = () => {
+        trendTimeoutRef.current = window.setTimeout(() => {
+            setTrendTooltip(null);
+        }, 300); // Small delay to allow moving mouse into the tooltip
+    };
+
+    const handleTooltipMouseEnter = () => {
+        if (trendTimeoutRef.current) {
+            clearTimeout(trendTimeoutRef.current);
+            trendTimeoutRef.current = null;
+        }
+    };
+
+    const handleTooltipMouseLeave = () => {
+        trendTimeoutRef.current = window.setTimeout(() => {
+            setTrendTooltip(null);
+        }, 300);
+    };
+
     // Helper: Render Grade Tag
     const renderGradeTag = (grade: string) => {
         let style = "bg-gray-100 text-gray-600 border-gray-200";
@@ -236,15 +301,79 @@ const PerformanceArchives: React.FC = () => {
         return <span className={`px-2 py-0.5 rounded text-xs font-bold border ${style}`}>{grade}</span>;
     };
 
-    // Helper: Render Status Tag
-    const renderStatusTag = (status: string) => {
-        const map: Record<string, any> = {
-            'completed': { label: '已完成', style: 'text-green-600 bg-green-50' },
-            'pending': { label: '待面谈', style: 'text-orange-600 bg-orange-50' },
-            'not_required': { label: '无需面谈', style: 'text-gray-400 bg-gray-100' }
-        };
-        const config = map[status] || map['not_required'];
-        return <span className={`px-2 py-0.5 rounded text-xs font-medium ${config.style}`}>{config.label}</span>;
+    // Helper: Render Trend Icon Only (No Logic inside)
+    const renderTrendIcon = (trend: string) => {
+        if (trend === 'up') return <TrendingUp size={16} className="text-green-500" />;
+        if (trend === 'down') return <TrendingDown size={16} className="text-orange-500" />;
+        return <Minus size={16} className="text-gray-400" />;
+    };
+
+    // Helper: Render Tooltip Content (The Chart)
+    const renderTooltipContent = () => {
+        if (!trendTooltip) return null;
+        
+        const { item } = trendTooltip;
+        const history = item.trendHistory || [];
+        const width = 120;
+        const height = 40;
+        const padding = 5;
+        
+        const scores = history.map((h: any) => h.score);
+        const minScore = Math.min(...scores, 0); 
+        const maxScore = Math.max(...scores, 100);
+        
+        const points = history.map((h: any, i: number) => {
+            const x = padding + (i / (history.length - 1)) * (width - 2 * padding);
+            const y = height - padding - ((h.score - minScore) / (maxScore - minScore || 1)) * (height - 2 * padding);
+            return `${x},${y}`;
+        }).join(' ');
+
+        return (
+            <div 
+                className="fixed z-[9999] bg-white rounded-xl shadow-2xl border border-gray-200 p-4 animate-in fade-in zoom-in-95 duration-200 w-52"
+                style={{
+                    top: `${trendTooltip.rect.top - 8}px`,
+                    left: `${trendTooltip.rect.left + trendTooltip.rect.width / 2}px`,
+                    transform: 'translate(-50%, -100%)'
+                }}
+                onMouseEnter={handleTooltipMouseEnter}
+                onMouseLeave={handleTooltipMouseLeave}
+            >
+                <div className="flex justify-between items-center mb-3">
+                    <span className="text-xs font-bold text-gray-800">最近3次考核趋势</span>
+                    <BarChart2 size={12} className="text-gray-400"/>
+                </div>
+                
+                {/* SVG Chart */}
+                <div className="mb-3 border-b border-gray-100 pb-3">
+                    <svg width="100%" height={height} viewBox={`0 0 ${width} ${height}`} className="overflow-visible">
+                        <polyline points={points} fill="none" stroke="#3B82F6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                        {history.map((h: any, i: number) => {
+                            const x = padding + (i / (history.length - 1)) * (width - 2 * padding);
+                            const y = height - padding - ((h.score - minScore) / (maxScore - minScore || 1)) * (height - 2 * padding);
+                            return (
+                                <g key={i}>
+                                    <circle cx={x} cy={y} r="3" fill="white" stroke="#3B82F6" strokeWidth="2" />
+                                    <text x={x} y={y - 6} textAnchor="middle" fontSize="8" fill="#374151" fontWeight="bold">{h.score}</text>
+                                    <text x={x} y={height + 10} textAnchor="middle" fontSize="8" fill="#9CA3AF">{h.period}</text>
+                                </g>
+                            );
+                        })}
+                    </svg>
+                    <div className="h-4"></div>
+                </div>
+
+                <button 
+                    onClick={(e) => handleViewArchive(e, item)}
+                    className="w-full text-center text-xs text-blue-600 hover:bg-blue-50 py-1.5 rounded transition-colors font-medium flex items-center justify-center group/btn"
+                >
+                    点击查看更多 <ChevronRight size={10} className="ml-0.5 group-hover/btn:translate-x-0.5 transition-transform" />
+                </button>
+                
+                {/* Arrow */}
+                <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-px w-3 h-3 bg-white border-b border-r border-gray-200 transform rotate-45 shadow-sm"></div>
+            </div>
+        );
     };
 
     // Render Table Content
@@ -258,66 +387,66 @@ const PerformanceArchives: React.FC = () => {
                                 <input type="checkbox" className="rounded text-primary focus:ring-primary cursor-pointer" onChange={handleSelectAll} />
                             </th>
                             <th className="p-3 font-medium">员工姓名</th>
-                            <th className="p-3 font-medium">部门全路径</th>
+                            <th className="p-3 font-medium">部门</th>
                             <th className="p-3 font-medium">职位</th>
-                            <th className="p-3 font-medium">绩效周期</th>
-                            <th className="p-3 font-medium">考核任务</th>
-                            <th className="p-3 font-medium">最终得分</th>
-                            <th className="p-3 font-medium">绩效等级</th>
-                            <th className="p-3 font-medium">面谈状态</th>
-                            <th className="p-3 font-medium text-center">面谈次数</th>
-                            <th className="p-3 font-medium">最近面谈时间</th>
-                            <th className="p-3 font-medium">组织考核标识</th>
+                            <th className="p-3 font-medium">职级</th>
+                            <th className="p-3 font-medium text-center">绩效周期数</th>
+                            <th className="p-3 font-medium">最近绩效周期</th>
+                            <th className="p-3 font-medium">最近绩效结果</th>
+                            <th className="p-3 font-medium text-center">绩效趋势</th>
+                            <th className="p-3 font-medium text-center">绩效面谈次数</th>
                             <th className="p-3 font-medium text-right">操作</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100 bg-white">
                         {objectData.map((item) => (
-                            <tr key={item.id} className="hover:bg-blue-50/30 transition-colors group cursor-pointer">
-                                <td className="p-3 text-center">
+                            <tr key={item.id} className="hover:bg-blue-50/30 transition-colors group cursor-pointer" onClick={(e) => handleViewArchive(e, item)}>
+                                <td className="p-3 text-center" onClick={e => e.stopPropagation()}>
                                     <input type="checkbox" className="rounded text-primary focus:ring-primary cursor-pointer" checked={selectedIds.has(item.id)} onChange={() => handleCheckboxChange(item.id)} />
                                 </td>
                                 <td className="p-3">
-                                    <div className="flex flex-col">
-                                        <span className="text-gray-900 font-medium">{item.name}</span>
-                                        <span className="text-[10px] text-gray-400 font-mono">{item.empId}</span>
+                                    <div className="flex items-center">
+                                        <img src={item.avatar} alt="" className="w-8 h-8 rounded-full border border-gray-100 mr-3" />
+                                        <div className="flex flex-col">
+                                            <span className="text-gray-900 font-medium">{item.name}</span>
+                                            <span className="text-[10px] text-gray-400 font-mono">{item.empId}</span>
+                                        </div>
                                     </div>
                                 </td>
                                 <td className="p-3">
-                                    <div className="text-gray-600 truncate max-w-[180px]" title={item.deptPath}>{item.deptPath}</div>
+                                    <div className="text-gray-600 truncate max-w-[150px]" title={item.dept}>{item.dept}</div>
                                 </td>
                                 <td className="p-3 text-gray-700">{item.position}</td>
-                                <td className="p-3 text-gray-700 font-medium">{item.cycle}</td>
+                                <td className="p-3 text-gray-700">{item.level}</td>
+                                <td className="p-3 text-gray-700 text-center font-mono">{item.cycleCount}</td>
                                 <td className="p-3">
-                                    <div className="text-gray-700 truncate max-w-[150px]" title={item.taskName}>{item.taskName}</div>
-                                </td>
-                                <td className="p-3 text-gray-900 font-bold">{item.score}</td>
-                                <td className="p-3">
-                                    {renderGradeTag(item.grade)}
+                                    <span className="text-blue-600 hover:underline cursor-pointer text-xs">{item.latestCycle}</span>
                                 </td>
                                 <td className="p-3">
-                                    {renderStatusTag(item.interviewStatus)}
+                                    <div className="flex items-center space-x-2">
+                                        <span className="font-bold text-gray-800">{item.latestScore}</span>
+                                        {renderGradeTag(item.latestGrade)}
+                                    </div>
                                 </td>
                                 <td className="p-3 text-center">
-                                    {item.interviewCount > 0 ? (
-                                        <span className="text-blue-600 font-medium cursor-pointer hover:underline">{item.interviewCount}</span>
-                                    ) : (
-                                        <span className="text-gray-300">-</span>
-                                    )}
+                                    <div 
+                                        className="flex justify-center p-1 cursor-pointer w-full h-full"
+                                        onMouseEnter={(e) => handleTrendMouseEnter(e, item)}
+                                        onMouseLeave={handleTrendMouseLeave}
+                                        onClick={(e) => e.stopPropagation()}
+                                    >
+                                        {renderTrendIcon(item.trend)}
+                                    </div>
                                 </td>
-                                <td className="p-3 text-gray-500 text-xs">{item.lastInterviewDate}</td>
-                                <td className="p-3">
-                                    {item.isOrgAssessment ? (
-                                        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] bg-purple-50 text-purple-700 border border-purple-100">
-                                            <Building2 size={10} className="mr-1" /> 是
-                                        </span>
-                                    ) : (
-                                        <span className="text-gray-300 text-xs">否</span>
-                                    )}
+                                <td className="p-3 text-center">
+                                    <span className="text-gray-700 font-mono">{item.interviewCount}</span>
                                 </td>
                                 <td className="p-3 text-right">
-                                    <button className="text-blue-600 hover:text-blue-800 text-xs font-medium hover:underline">
-                                        查看
+                                    <button 
+                                        onClick={(e) => handleViewArchive(e, item)}
+                                        className="text-blue-600 hover:text-blue-800 text-xs font-medium hover:underline"
+                                    >
+                                        查看档案
                                     </button>
                                 </td>
                             </tr>
@@ -409,7 +538,7 @@ const PerformanceArchives: React.FC = () => {
     };
 
     return (
-        <div className="flex flex-col h-full bg-white">
+        <div className="flex flex-col h-full bg-white relative">
             {/* Top Navigation Bar */}
             <div className="h-12 border-b border-gray-200 flex items-center px-4 space-x-6">
                 <button 
@@ -458,7 +587,7 @@ const PerformanceArchives: React.FC = () => {
                 <div className="flex items-center space-x-2">
                     <div className="relative">
                         <select className="appearance-none pl-3 pr-8 py-1.5 bg-white border border-gray-300 rounded text-sm text-gray-600 focus:outline-none focus:border-primary hover:border-gray-400 transition-colors cursor-pointer">
-                            <option>{activeTab === 'tasks' ? '考核周期' : '绩效周期'}</option>
+                            <option>{activeTab === 'tasks' ? '考核周期' : '职级'}</option>
                             <option>{activeTab === 'tasks' ? '任务状态' : '职位'}</option>
                             <option>部门</option>
                         </select>
@@ -501,6 +630,16 @@ const PerformanceArchives: React.FC = () => {
                 <input type="text" className="w-10 border border-gray-300 rounded py-1 px-1 text-center" />
                 <span>页</span>
             </div>
+
+            {/* Archive Drawer */}
+            <EmployeeArchiveDrawer 
+                isOpen={isArchiveDrawerOpen}
+                onClose={() => setIsArchiveDrawerOpen(false)}
+                employee={selectedEmployeeForArchive}
+            />
+
+            {/* Trend Tooltip (Fixed Overlay) */}
+            {renderTooltipContent()}
         </div>
     );
 };
