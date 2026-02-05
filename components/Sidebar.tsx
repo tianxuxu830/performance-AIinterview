@@ -12,7 +12,8 @@ import {
   Menu,
   ListTodo,
   MessageSquare,
-  FolderOpen
+  FolderOpen,
+  PieChart
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -23,13 +24,13 @@ interface SidebarProps {
 
 const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, currentRole }) => {
   const [isOpen, setIsOpen] = useState(true);
-  const [expandedMenus, setExpandedMenus] = useState<string[]>(['todo']);
+  const [expandedMenus, setExpandedMenus] = useState<string[]>(['todo', 'my_team']);
 
   // Reset expanded menus when role changes if needed, or keep as is.
   // We can ensure the relevant menus are expanded by default.
   useEffect(() => {
       if (currentRole === 'Employee') {
-          setExpandedMenus(prev => [...new Set([...prev, 'todo'])]);
+          setExpandedMenus(prev => [...new Set([...prev, 'todo', 'my_team'])]);
       }
       // HR top level menus don't need expansion logic anymore
   }, [currentRole]);
@@ -65,6 +66,16 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, currentRol
         icon: Target, 
         label: '目标管理', 
         roles: ['Employee'] 
+    },
+    {
+      id: 'my_team',
+      icon: Users,
+      label: '我的团队',
+      roles: ['Employee'],
+      subItems: [
+        { id: 'my_team_org', label: '组织绩效' },
+        { id: 'my_team_sub', label: '下属绩效' }
+      ]
     },
     { 
         id: 'okr', 

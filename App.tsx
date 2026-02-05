@@ -9,12 +9,15 @@ import InterviewScheduler from './components/InterviewScheduler';
 import ScheduleMeetingModal from './components/ScheduleMeetingModal'; 
 import TemplateConfigPage from './components/TemplateModal'; 
 import AssessmentList from './components/AssessmentList';
+import AssessmentTaskList from './components/AssessmentTaskList';
 import NewInterviewModal from './components/NewInterviewModal';
 import TaskList from './components/TaskList'; 
 import EmployeeTaskTable from './components/EmployeeTaskTable'; 
 import EmployeeDashboard from './components/EmployeeDashboard';
 import SystemSettings from './components/SystemSettings';
 import PerformanceArchives from './components/PerformanceArchives';
+import MyTeamOrgPerformance from './components/MyTeamOrgPerformance';
+import MyTeamSubordinatePerformance from './components/MyTeamSubordinatePerformance';
 import { InterviewSession, Status, InterviewType, Notification } from './types';
 import { MOCK_SESSIONS, MOCK_EMPLOYEES } from './constants';
 
@@ -22,6 +25,9 @@ function App() {
   const [userRole, setUserRole] = useState<'HR' | 'Employee'>('Employee'); 
   const [activePage, setActivePage] = useState('dashboard'); 
   
+  // Assessment Navigation State
+  const [selectedAssessmentTask, setSelectedAssessmentTask] = useState<string | null>(null);
+
   const [sessions, setSessions] = useState<InterviewSession[]>(MOCK_SESSIONS);
   const [selectedSession, setSelectedSession] = useState<InterviewSession | null>(null);
   
@@ -46,6 +52,7 @@ function App() {
       setUserRole(role);
       if (role === 'HR') {
           setActivePage('assessments');
+          setSelectedAssessmentTask(null); // Reset to list view when switching to HR
       } else {
           setActivePage('dashboard');
       }
@@ -82,7 +89,7 @@ function App() {
   // Handlers
   const handleInitiateInterviewFromAssessment = (employeeIds: string[]) => {
       setNewInterviewInitialEmployees(employeeIds);
-      setNewInterviewDefaultTopic('业绩考核5月'); 
+      setNewInterviewDefaultTopic(selectedAssessmentTask || '绩效面谈'); 
       setIsNewInterviewModalOpen(true);
   };
 
@@ -278,6 +285,18 @@ function App() {
       setSessions(prev => prev.filter(s => s.id !== sessionId));
   };
 
+  const handleBatchUpdateSessions = (ids: string[], updates: Partial<InterviewSession>) => {
+      setSessions(prev => prev.map(s => 
+          ids.includes(s.id) ? { ...s, ...updates } : s
+      ));
+  };
+
+  const handleSingleCancelSession = (sessionId: string) => {
+      if(window.confirm('确定要取消该面谈任务吗？此操作不可恢复。')) {
+          setSessions(prev => prev.filter(s => s.id !== sessionId));
+      }
+  };
+
   const renderContent = () => {
     if (activePage === 'dashboard') {
         if (userRole === 'Employee') {
@@ -304,6 +323,14 @@ function App() {
         );
     }
 
+    if (activePage === 'my_team_org') {
+        return <MyTeamOrgPerformance />;
+    }
+
+    if (activePage === 'my_team_sub') {
+        return <MyTeamSubordinatePerformance />;
+    }
+
     if (activePage === 'settings') {
         return <SystemSettings onNavigate={setActivePage} />;
     }
@@ -313,12 +340,23 @@ function App() {
     }
 
     if (activePage === 'assessments') {
+        if (selectedAssessmentTask) {
+            return (
+                <AssessmentList 
+                    taskName={selectedAssessmentTask}
+                    onInitiateInterview={handleInitiateInterviewFromAssessment} 
+                    sessions={sessions}
+                    onScheduleSession={handleOpenScheduleModal}
+                    onSelectSession={handleSelectSession}
+                    onCancelSession={handleSingleCancelSession}
+                    onBatchUpdateSessions={handleBatchUpdateSessions}
+                    onBack={() => setSelectedAssessmentTask(null)}
+                />
+            );
+        }
         return (
-            <AssessmentList 
-                onInitiateInterview={handleInitiateInterviewFromAssessment} 
-                sessions={sessions}
-                onScheduleSession={handleOpenScheduleModal}
-                onSelectSession={handleSelectSession}
+            <AssessmentTaskList 
+                onSelectTask={(taskName) => setSelectedAssessmentTask(taskName)} 
             />
         );
     }
@@ -409,7 +447,8 @@ function App() {
             activePage={activePage} 
             setActivePage={(page) => {
               setActivePage(page);
-              setViewMode('list'); 
+              setViewMode('list');
+              if (page === 'assessments') setSelectedAssessmentTask(null);
             }} 
             currentRole={userRole}
           />

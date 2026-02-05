@@ -4,7 +4,7 @@ import {
   Mic, Video, Share, Users, MessageSquare, 
   Layout, ChevronRight, Sparkles, FileText, 
   BookOpen, MoreHorizontal, Settings, CheckSquare, Square,
-  Zap, CheckCircle2, AlertCircle, BarChart
+  Zap, CheckCircle2, AlertCircle, BarChart, Activity, Target, ThumbsUp, TrendingUp, Wand2, AlertTriangle
 } from 'lucide-react';
 import { InterviewSession, DimensionItem } from '../types';
 import { MOCK_TEMPLATES, MOCK_ASSESSMENT_DETAILS } from '../constants';
@@ -15,7 +15,7 @@ interface InterviewExecutionProps {
 }
 
 const InterviewExecution: React.FC<InterviewExecutionProps> = ({ session, onEndMeeting }) => {
-  const [activeTab, setActiveTab] = useState<'outline' | 'analysis' | 'reference' | 'notes'>('outline');
+  const [activeTab, setActiveTab] = useState<'outline' | 'analysis' | 'reference' | 'notes'>('analysis');
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [checkedItems, setCheckedItems] = useState<Record<string, boolean>>({});
   
@@ -27,6 +27,74 @@ const InterviewExecution: React.FC<InterviewExecutionProps> = ({ session, onEndM
   };
 
   const totalFields = template.sections.reduce((acc, section) => acc + section.fields.length, 0);
+
+  // Helper function to render items in Focus Area as "Notes" (Adapted for Sidebar)
+  const renderFocusNote = (item: any, type: 'controversy' | 'improvement' | 'highlight') => {
+    let config = {
+        bgColor: 'bg-purple-50',
+        borderColor: 'border-purple-200',
+        textColor: 'text-purple-900',
+        iconColor: 'text-purple-600',
+        badgeBg: 'bg-purple-100',
+        badgeText: '重点沟通',
+        icon: AlertTriangle,
+        actionLabel: '查看冲突',
+    };
+
+    if (type === 'improvement') {
+        config = {
+            bgColor: 'bg-orange-50',
+            borderColor: 'border-orange-200',
+            textColor: 'text-orange-900',
+            iconColor: 'text-orange-600',
+            badgeBg: 'bg-orange-100',
+            badgeText: '待改进',
+            icon: TrendingUp,
+            actionLabel: '',
+        };
+    } else if (type === 'highlight') {
+        config = {
+            bgColor: 'bg-green-50',
+            borderColor: 'border-green-200',
+            textColor: 'text-green-900',
+            iconColor: 'text-green-600',
+            badgeBg: 'bg-green-100',
+            badgeText: '业绩亮点',
+            icon: ThumbsUp,
+            actionLabel: '',
+        };
+    }
+
+    return (
+        <div key={item.id} className={`rounded-xl border p-3 flex flex-col ${config.bgColor} ${config.borderColor} shadow-sm relative overflow-hidden transition-all hover:shadow-md`}>
+            {/* Top Badge */}
+            <div className="flex justify-between items-start mb-2">
+                <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold ${config.badgeBg} ${config.textColor}`}>
+                    <config.icon size={10} className={`mr-1 ${config.iconColor}`} /> {config.badgeText}
+                </span>
+                {type === 'controversy' && (
+                    <span className="text-[10px] font-bold text-red-500 bg-white/80 px-1.5 py-0.5 rounded shadow-sm border border-red-100">
+                        分差 {Math.abs(item.selfScore - item.managerScore)}
+                    </span>
+                )}
+            </div>
+            
+            {/* Content */}
+            <div className="flex-1 mb-2">
+                <h5 className={`font-bold text-xs ${config.textColor} mb-1 line-clamp-1`} title={item.name}>{item.name}</h5>
+                <div className="text-[10px] text-gray-600 space-y-0.5">
+                    <div className="flex justify-between">
+                        <span>自评: <span className="font-medium">{item.selfScore}</span></span>
+                        <span>他评: <span className="font-medium">{item.managerScore}</span></span>
+                    </div>
+                    {item.description && (
+                        <p className="line-clamp-2 opacity-80 mt-1 italic leading-tight">"{item.description}"</p>
+                    )}
+                </div>
+            </div>
+        </div>
+    );
+  };
 
   return (
     <div className="flex h-screen bg-gray-900 overflow-hidden">
@@ -171,57 +239,65 @@ const InterviewExecution: React.FC<InterviewExecutionProps> = ({ session, onEndM
                 )}
                 
                 {activeTab === 'analysis' && (
-                    <div className="p-5 space-y-5">
-                         <div className="bg-gradient-to-br from-indigo-50 to-purple-50 p-4 rounded-xl border border-indigo-100">
-                             <h4 className="flex items-center text-sm font-bold text-indigo-900 mb-3">
-                                 <Sparkles size={16} className="mr-2 text-indigo-600"/>
-                                 实时辅助
-                             </h4>
-                             <p className="text-xs text-indigo-800 leading-relaxed mb-3">
-                                 AI 正在监听对话... 检测到当前话题为 <strong>“团队协作”</strong>。
-                             </p>
-                             <div className="bg-white/80 p-3 rounded border border-indigo-100 text-xs text-gray-700 shadow-sm">
-                                 <span className="font-bold text-indigo-700 block mb-1">💡 提问建议</span>
-                                 "关于跨部门沟通不畅的问题，你认为具体的卡点是在流程上还是人员配合上？"
-                             </div>
-                         </div>
+                    <div className="p-5 h-full overflow-y-auto custom-scrollbar bg-gray-50/50">
+                        {/* Comprehensive Analysis Panel (Replaces Real-time Assistant & Simplified view) */}
+                        <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-[0_2px_8px_rgba(0,0,0,0.04)]">
+                            <div className="flex items-center justify-between mb-4">
+                                <h4 className="text-sm font-bold text-gray-900 flex items-center">
+                                    <Activity size={16} className="mr-2 text-blue-600" /> 综合分析
+                                </h4>
+                            </div>
 
-                         <div>
-                             <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3">绩效摘要</h4>
-                             <div className="space-y-2">
-                                <div className="p-3 border rounded-lg flex justify-between items-center">
-                                    <span className="text-sm text-gray-600">综合评分</span>
-                                    <span className="font-bold text-lg text-gray-900">88.5 <span className="text-xs font-normal text-gray-400">/ A</span></span>
+                            {/* Score Row */}
+                            <div className="flex items-end justify-between border-b border-gray-100 pb-4 mb-4">
+                                <div>
+                                    <div className="text-xs text-gray-500 mb-1">综合评分</div>
+                                    <div className="flex items-baseline">
+                                        <span className="text-3xl font-bold text-gray-900 tracking-tight">88.5</span>
+                                        <span className="ml-2 text-xs font-bold text-green-600 bg-green-50 px-2 py-0.5 rounded border border-green-100">等级 A</span>
+                                    </div>
                                 </div>
-                                <div className="p-3 border rounded-lg flex justify-between items-center bg-red-50 border-red-100">
-                                    <span className="text-sm text-red-700">自评偏差</span>
-                                    <span className="font-bold text-red-600">+15分</span>
+                                <div className="text-right">
+                                    <div className="text-xs text-gray-500 mb-1">整体目标达成率</div>
+                                    <div className="text-sm font-bold text-blue-600">95%</div>
                                 </div>
-                             </div>
-                         </div>
+                            </div>
+
+                            {/* KEY FOCUS */}
+                            <div>
+                                <div className="text-xs font-bold text-gray-700 mb-3 flex items-center">
+                                    <Target size={14} className="mr-1.5 text-blue-500"/> 本周期重点
+                                </div>
+                                
+                                {/* Vertical Layout for Sidebar */}
+                                <div className="space-y-3">
+                                    {assessmentDetail.controversies.map(item => renderFocusNote(item, 'controversy'))}
+                                    {assessmentDetail.improvements.map(item => renderFocusNote(item, 'improvement'))}
+                                    {assessmentDetail.highlights.map(item => renderFocusNote(item, 'highlight'))}
+                                </div>
+
+                                <p className="mt-4 text-xs text-gray-500 leading-relaxed bg-gray-50 p-2.5 rounded border border-gray-100">
+                                    <span className="font-bold text-gray-700 flex items-center mb-1">
+                                        <Wand2 size={10} className="mr-1 text-purple-500" /> AI 总结：
+                                    </span>
+                                    整体表现稳健，执行力与协作力表现突出。主要矛盾集中在KPI认定规则的理解上，建议面谈时优先解决。
+                                </p>
+                            </div>
+                        </div>
                     </div>
                 )}
 
                 {activeTab === 'reference' && (
                     <div className="p-4 space-y-4">
-                        <div className="text-xs text-gray-500 mb-2 font-bold uppercase tracking-wide px-1">考核数据卡片</div>
-                        {assessmentDetail.highlights.map(item => (
-                            <ReferenceCard key={item.id} item={item} color="green" icon={CheckCircle2} title="高分项" />
-                        ))}
-                        {assessmentDetail.controversies.map(item => (
-                            <ReferenceCard key={item.id} item={item} color="purple" icon={Zap} title="争议项" />
-                        ))}
-                         <div className="mt-6">
-                            <div className="text-xs text-gray-500 mb-2 font-bold uppercase tracking-wide px-1">附件证明</div>
-                            {assessmentDetail.attachments.map(att => (
-                                <div key={att.id} className="bg-gray-50 p-3 rounded border border-gray-200 text-sm mb-2 flex items-center cursor-pointer hover:bg-white hover:shadow-sm transition-all">
-                                    <div className="w-8 h-8 bg-white rounded flex items-center justify-center text-[10px] font-bold text-gray-500 mr-3 border">
-                                        {att.type}
-                                    </div>
-                                    <div className="flex-1 truncate text-xs text-gray-700">{att.name}</div>
+                        <div className="text-xs text-gray-500 mb-2 font-bold uppercase tracking-wide px-1">附件证明</div>
+                        {assessmentDetail.attachments.map(att => (
+                            <div key={att.id} className="bg-gray-50 p-3 rounded border border-gray-200 text-sm mb-2 flex items-center cursor-pointer hover:bg-white hover:shadow-sm transition-all">
+                                <div className="w-8 h-8 bg-white rounded flex items-center justify-center text-[10px] font-bold text-gray-500 mr-3 border">
+                                    {att.type}
                                 </div>
-                            ))}
-                         </div>
+                                <div className="flex-1 truncate text-xs text-gray-700">{att.name}</div>
+                            </div>
+                        ))}
                     </div>
                 )}
 
@@ -271,56 +347,6 @@ const TabButton = ({ active, onClick, icon: Icon, label }: { active: boolean, on
         {label}
     </button>
 );
-
-interface ReferenceCardProps {
-    item: DimensionItem;
-    color: string;
-    icon: any;
-    title: string;
-}
-
-const ReferenceCard: React.FC<ReferenceCardProps> = ({ item, color, icon: Icon, title }) => {
-    const colorMap: Record<string, string> = {
-        green: 'border-l-green-500 bg-green-50/30',
-        orange: 'border-l-orange-500 bg-orange-50/30',
-        purple: 'border-l-purple-500 bg-purple-50/30',
-    };
-    const textMap: Record<string, string> = {
-        green: 'text-green-700',
-        orange: 'text-orange-700',
-        purple: 'text-purple-700',
-    };
-    const barMap: Record<string, string> = {
-        green: 'bg-green-500',
-        orange: 'bg-orange-500',
-        purple: 'bg-purple-500',
-    };
-
-    return (
-        <div className={`bg-white rounded shadow-sm border border-gray-200 border-l-4 p-3 ${colorMap[color]}`}>
-            <div className={`flex items-center text-xs font-bold mb-2 ${textMap[color]}`}>
-                <Icon size={12} className="mr-1" /> {title}
-            </div>
-            <div className="font-bold text-sm text-gray-800 mb-2">{item.name}</div>
-            <div className="space-y-2 mb-2">
-                 <div className="flex items-center text-[10px]">
-                     <span className="w-8 text-gray-500">自评</span>
-                     <div className="flex-1 h-1.5 bg-gray-100 rounded-full mx-2 overflow-hidden">
-                         <div className="h-full bg-gray-400 rounded-full" style={{ width: `${item.selfScore}%` }}></div>
-                     </div>
-                     <span className="w-6 text-right font-medium">{item.selfScore}</span>
-                 </div>
-                 <div className="flex items-center text-[10px]">
-                     <span className="w-8 text-gray-500">他评</span>
-                     <div className="flex-1 h-1.5 bg-gray-100 rounded-full mx-2 overflow-hidden">
-                         <div className={`h-full rounded-full ${barMap[color]}`} style={{ width: `${item.managerScore}%` }}></div>
-                     </div>
-                     <span className={`w-6 text-right font-bold ${textMap[color]}`}>{item.managerScore}</span>
-                 </div>
-            </div>
-        </div>
-    );
-};
 
 const ControlButton = ({ icon: Icon, label, active = false }: { icon: any, label: string, active?: boolean }) => (
     <button className={`flex flex-col items-center justify-center w-12 h-12 rounded-xl hover:bg-gray-800 text-gray-400 hover:text-white transition-all ${active ? 'bg-gray-800 text-blue-400' : ''}`}>

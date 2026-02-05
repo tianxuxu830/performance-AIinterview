@@ -4,7 +4,7 @@ import {
   Plus, Search, Clock, 
   Edit3, AlertCircle, ArrowRight, FileText, History, X, Bell,
   Star, Paperclip, Table, Grid,
-  PieChart, Briefcase, CheckCircle, Calendar as CalendarIcon, PlayCircle, Trash2, MoreHorizontal, AlertTriangle
+  Briefcase, CheckCircle, Calendar as CalendarIcon, PlayCircle, Trash2, MoreHorizontal, AlertTriangle
 } from 'lucide-react';
 import { InterviewSession, Status, InterviewType, HistoricalRecord } from '../types';
 import { MOCK_HISTORY_RECORDS, MOCK_TEMPLATES, MOCK_EMPLOYEES, MOCK_PERFORMANCE_RECORDS } from '../constants';
@@ -55,14 +55,6 @@ const InterviewList: React.FC<InterviewListProps> = ({
       completed: sessions.filter(s => s.status === Status.Completed).length,
       inProgress: sessions.filter(s => s.status === Status.InProgress || s.status === Status.PendingConfirmation).length,
       notStarted: sessions.filter(s => s.status === Status.NotStarted).length,
-  };
-  
-  // Calculate Rates for Chart
-  const totalSafe = stats.total || 1; // Avoid division by zero
-  const rates = {
-      completed: (stats.completed / totalSafe) * 100,
-      inProgress: (stats.inProgress / totalSafe) * 100,
-      notStarted: (stats.notStarted / totalSafe) * 100,
   };
 
   // Filter Logic
@@ -424,9 +416,9 @@ const InterviewList: React.FC<InterviewListProps> = ({
     <div className="p-6 h-full flex flex-col bg-white relative">
       
       {/* 1. Statistics Panel */}
-      <div className="bg-white border border-gray-200 rounded-xl p-5 mb-6 shadow-sm flex flex-col md:flex-row gap-6">
+      <div className="bg-white border border-gray-200 rounded-xl p-5 mb-6 shadow-sm">
           {/* Stats Cards Grid */}
-          <div className="flex-1 grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div className="bg-gray-50/50 border border-gray-100 rounded-xl p-3.5 flex items-center transition-all hover:bg-gray-50 hover:shadow-sm">
                   <div className="w-10 h-10 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center mr-3 shrink-0">
                       <Briefcase size={18} />
@@ -466,25 +458,6 @@ const InterviewList: React.FC<InterviewListProps> = ({
                       <div className="text-xl font-bold text-gray-700">{stats.notStarted}</div>
                   </div>
               </div>
-          </div>
-          
-          {/* Progress Chart Area */}
-          <div className="w-full md:w-64 border-t md:border-t-0 md:border-l border-gray-100 pt-4 md:pt-0 md:pl-6 flex flex-col justify-center">
-             <div className="text-xs font-bold text-gray-500 mb-3 flex items-center">
-                 <PieChart size={14} className="mr-1.5 text-blue-500"/> 进度分布
-             </div>
-             {/* Stacked Bar */}
-             <div className="h-4 w-full bg-gray-100 rounded-full overflow-hidden flex mb-3">
-                 <div className="bg-green-500 h-full transition-all duration-500" style={{ width: `${rates.completed}%` }} title={`已完成 ${Math.round(rates.completed)}%`}></div>
-                 <div className="bg-blue-500 h-full transition-all duration-500" style={{ width: `${rates.inProgress}%` }} title={`进行中 ${Math.round(rates.inProgress)}%`}></div>
-                 <div className="bg-gray-300 h-full transition-all duration-500" style={{ width: `${rates.notStarted}%` }} title={`未开始 ${Math.round(rates.notStarted)}%`}></div>
-             </div>
-             {/* Legend */}
-             <div className="flex flex-wrap gap-x-3 gap-y-1 text-[10px] text-gray-500 font-medium">
-                 <div className="flex items-center"><div className="w-2 h-2 rounded-full bg-green-500 mr-1.5"></div>完成 {Math.round(rates.completed)}%</div>
-                 <div className="flex items-center"><div className="w-2 h-2 rounded-full bg-blue-500 mr-1.5"></div>进行 {Math.round(rates.inProgress)}%</div>
-                 <div className="flex items-center"><div className="w-2 h-2 rounded-full bg-gray-300 mr-1.5"></div>未开始 {Math.round(rates.notStarted)}%</div>
-             </div>
           </div>
       </div>
 

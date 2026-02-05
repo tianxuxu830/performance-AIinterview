@@ -4,11 +4,12 @@ import {
   ArrowLeft, Calendar, Clock, Download, Share2, 
   Sparkles, List, FileText, 
   CheckCircle2, X,
-  Paperclip, Edit3, Save, PlayCircle, AlertCircle,
+  Paperclip, Edit3, PlayCircle, AlertCircle,
   TrendingUp, Eye, Info, BookOpen, Video, Mic,
   Send, BarChart2, User, MoreHorizontal, Wand2, ChevronDown, Check,
   AlertTriangle, History, ArrowRight, ChevronUp, Activity,
-  Target, ThumbsUp, ThumbsDown, MessageSquare, Layers
+  Target, ThumbsUp, ThumbsDown, MessageSquare, Layers,
+  Loader2, Lock, ShieldCheck, Shield
 } from 'lucide-react';
 import { InterviewSession, Status, TemplateField, InterviewType, HistoricalRecord } from '../types';
 import { MOCK_TEMPLATES, MOCK_ASSESSMENT_DETAILS, MOCK_EMPLOYEES, MOCK_AI_OUTLINE, ExtendedAssessmentDetail, MOCK_HISTORY_RECORDS, MOCK_PERFORMANCE_TRENDS } from '../constants';
@@ -96,6 +97,19 @@ const InterviewForm: React.FC<InterviewFormProps> = ({ session, onBack, onStart,
   // Modal State
   const [conflictModalOpen, setConflictModalOpen] = useState(false);
   const [activeConflictItem, setActiveConflictItem] = useState<any>(null);
+  
+  // Share Confirmation Modal State
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+  const [shareConfig, setShareConfig] = useState({
+      items: {
+          summary: true,
+          form: true,
+          info: false, // Changed default to false
+          ref: false,  // Changed default to false
+          replay: false
+      },
+      formPermission: 'read' as 'read' | 'edit'
+  });
 
   // Scroll Anchors Refs
   const overviewRef = useRef<HTMLDivElement>(null);
@@ -103,6 +117,9 @@ const InterviewForm: React.FC<InterviewFormProps> = ({ session, onBack, onStart,
 
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [formValues, setFormValues] = useState<Record<string, string>>({});
+  const [saveStatus, setSaveStatus] = useState<'saved' | 'saving'>('saved'); // Auto-save status
+  const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const [leftPanelWidth, setLeftPanelWidth] = useState(initialLeftWidth);
   const [isDragging, setIsDragging] = useState(false);
   const [showHistoryDropdown, setShowHistoryDropdown] = useState(false);
@@ -147,8 +164,22 @@ const InterviewForm: React.FC<InterviewFormProps> = ({ session, onBack, onStart,
   }, [isDragging, resize, stopResizing]);
 
   // --- Actions ---
+  
+  // Trigger auto-save simulation
+  const triggerAutoSave = () => {
+      setSaveStatus('saving');
+      if (autoSaveTimerRef.current) {
+          clearTimeout(autoSaveTimerRef.current);
+      }
+      // Simulate network request delay
+      autoSaveTimerRef.current = setTimeout(() => {
+          setSaveStatus('saved');
+      }, 800);
+  };
+
   const handleInputChange = (fieldId: string, value: string) => {
     setFormValues(prev => ({ ...prev, [fieldId]: value }));
+    triggerAutoSave();
   };
 
   const handleAIPolish = (fieldId: string) => {
@@ -157,6 +188,7 @@ const InterviewForm: React.FC<InterviewFormProps> = ({ session, onBack, onStart,
           ...prev,
           [fieldId]: currentVal + " (AI已润色：表述更专业，强调了数据支撑...)"
       }));
+      triggerAutoSave();
   };
 
   const handleAIFill = () => {
@@ -169,6 +201,7 @@ const InterviewForm: React.FC<InterviewFormProps> = ({ session, onBack, onStart,
           });
       });
       setFormValues(newValues);
+      triggerAutoSave();
   };
   
   const handleHistorySwitch = (record: HistoricalRecord) => {
@@ -188,6 +221,25 @@ const InterviewForm: React.FC<InterviewFormProps> = ({ session, onBack, onStart,
       };
       onChangeSession(newSession);
       setShowHistoryDropdown(false);
+  };
+
+  const handlePreSubmit = () => {
+      setIsShareModalOpen(true);
+  };
+
+  const handleConfirmShare = () => {
+      setIsShareModalOpen(false);
+      onSubmitFeedback();
+  };
+
+  const toggleShareItem = (key: keyof typeof shareConfig.items) => {
+      setShareConfig(prev => ({
+          ...prev,
+          items: {
+              ...prev.items,
+              [key]: !prev.items[key]
+          }
+      }));
   };
 
   const scrollToSection = (ref: React.RefObject<HTMLDivElement>) => {
@@ -488,7 +540,6 @@ const InterviewForm: React.FC<InterviewFormProps> = ({ session, onBack, onStart,
       );
   };
 
-  // Header
   const renderHeader = () => (
       <div className="bg-white/90 backdrop-blur-md px-6 h-16 flex justify-between items-center z-20 shrink-0 sticky top-0 border-b border-gray-200 shadow-sm">
         <div className="flex items-center">
@@ -578,10 +629,9 @@ const InterviewForm: React.FC<InterviewFormProps> = ({ session, onBack, onStart,
       </div>
   );
 
-  // Updated Assessment Analysis Panel
   const renderAssessmentAnalysisPanel = () => (
     <div className="h-full flex flex-col bg-white">
-        {/* 1. Header: User Info & Period Selector */}
+        {/* ... (Existing Content) ... */}
         <div className="px-6 py-5 border-b border-gray-100 bg-white sticky top-0 z-10">
             <div className="flex items-start justify-between mb-4">
                 <div className="flex items-center">
@@ -611,17 +661,13 @@ const InterviewForm: React.FC<InterviewFormProps> = ({ session, onBack, onStart,
                 </div>
             </div>
             
-            {/* Anchor Navigation */}
             <div className="flex space-x-6 text-xs font-medium text-gray-500">
                 <button onClick={() => scrollToSection(overviewRef)} className="hover:text-blue-600 transition-colors">综合分析</button>
                 <button onClick={() => scrollToSection(historyRef)} className="hover:text-blue-600 transition-colors">历史趋势</button>
             </div>
         </div>
 
-        {/* 2. Scrollable Content Area */}
         <div className="flex-1 overflow-y-auto custom-scrollbar bg-gray-50/30 p-6 space-y-8">
-            
-            {/* Section 1: Comprehensive Overview (Refactored) */}
             <div ref={overviewRef} className="scroll-mt-4">
                 <div className="flex items-center justify-between mb-3">
                     <h4 className="text-sm font-bold text-gray-900 flex items-center">
@@ -631,7 +677,6 @@ const InterviewForm: React.FC<InterviewFormProps> = ({ session, onBack, onStart,
                 </div>
                 
                 <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-[0_2px_8px_rgba(0,0,0,0.04)]">
-                    {/* Score Row */}
                     <div className="flex items-end justify-between border-b border-gray-100 pb-4 mb-4">
                         <div>
                             <div className="text-xs text-gray-500 mb-1">综合评分</div>
@@ -646,13 +691,10 @@ const InterviewForm: React.FC<InterviewFormProps> = ({ session, onBack, onStart,
                         </div>
                     </div>
 
-                    {/* KEY FOCUS OF THIS CYCLE (New Section replacing Persona) */}
                     <div>
                         <div className="text-xs font-bold text-gray-700 mb-3 flex items-center">
                             <Target size={14} className="mr-1.5 text-blue-500"/> 本周期重点
                         </div>
-                        
-                        {/* Grid Layout for Sticky Notes */}
                         <div className="grid grid-cols-2 gap-3">
                             {assessmentDetail.controversies.map(item => renderFocusNote(item, 'controversy'))}
                             {assessmentDetail.improvements.map(item => renderFocusNote(item, 'improvement'))}
@@ -669,7 +711,6 @@ const InterviewForm: React.FC<InterviewFormProps> = ({ session, onBack, onStart,
                 </div>
             </div>
 
-            {/* Section 2: History Trend */}
             <div ref={historyRef} className="scroll-mt-4 pb-10">
                 <h4 className="text-sm font-bold text-gray-900 mb-3 flex items-center">
                     <History size={16} className="mr-2 text-blue-600" /> 历史趋势
@@ -690,7 +731,6 @@ const InterviewForm: React.FC<InterviewFormProps> = ({ session, onBack, onStart,
                         </div>
                     </div>
 
-                    {/* NEW: Historical Interview Records */}
                     <div className="mt-6 pt-4 border-t border-gray-100">
                         <div className="text-xs font-bold text-gray-500 mb-3 flex items-center justify-between">
                             <span>历史面谈记录</span>
@@ -699,7 +739,6 @@ const InterviewForm: React.FC<InterviewFormProps> = ({ session, onBack, onStart,
                         <div className="space-y-3">
                             {historyRecords.map((record, index) => (
                                 <div key={index} className="flex flex-col bg-gray-50 p-3 rounded-lg border border-gray-100 relative hover:shadow-sm transition-shadow">
-                                    {/* Content */}
                                     <div className="flex justify-between items-start mb-1">
                                         <span className="font-bold text-gray-800 text-xs">{record.type}</span>
                                         <span className="text-[10px] text-gray-400">{record.date}</span>
@@ -717,18 +756,14 @@ const InterviewForm: React.FC<InterviewFormProps> = ({ session, onBack, onStart,
                     </div>
                 </div>
             </div>
-
         </div>
         
-        {/* Render Modals */}
         {renderConflictModal()}
     </div>
   );
 
-  // Component: Feedback Form (Right Content)
   const renderFeedbackForm = (readOnly: boolean = false) => (
       <div className="flex flex-col h-full bg-white relative">
-          {/* Scrollable Content Area */}
           <div className="flex-1 overflow-y-auto custom-scrollbar px-6 py-6">
               <div className="max-w-4xl mx-auto space-y-6">
                   <div className="flex items-center justify-between mb-2">
@@ -798,12 +833,22 @@ const InterviewForm: React.FC<InterviewFormProps> = ({ session, onBack, onStart,
 
           {/* Sticky Bottom Actions */}
           {!readOnly && (
-              <div className="p-4 bg-white border-t border-gray-200 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] flex justify-end space-x-3 z-10 shrink-0">
-                  <button className="px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg shadow-sm hover:bg-gray-50 font-medium flex items-center transition-colors text-sm">
-                      <Save size={16} className="mr-2" /> 直接保存
-                  </button>
+              <div className="p-4 bg-white border-t border-gray-200 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] flex justify-between items-center z-10 shrink-0">
+                  <div className="flex items-center text-xs text-gray-400 pl-2">
+                      {saveStatus === 'saving' ? (
+                          <>
+                              <Loader2 size={14} className="animate-spin mr-2" />
+                              <span>正在保存...</span>
+                          </>
+                      ) : (
+                          <>
+                              <CheckCircle2 size={14} className="text-green-500 mr-1.5" />
+                              <span>已自动保存</span>
+                          </>
+                      )}
+                  </div>
                   <button 
-                    onClick={onSubmitFeedback}
+                    onClick={handlePreSubmit}
                     className="px-4 py-2 bg-blue-600 text-white rounded-lg shadow-lg shadow-blue-200 hover:bg-blue-700 font-medium flex items-center transition-colors text-sm"
                   >
                       <Send size={16} className="mr-2" /> 提交给员工确认
@@ -813,7 +858,6 @@ const InterviewForm: React.FC<InterviewFormProps> = ({ session, onBack, onStart,
       </div>
   );
 
-  // Component: Outline (Right Panel for Prep)
   const renderOutline = () => (
       <div className="p-6 h-full overflow-y-auto custom-scrollbar bg-gray-50/50">
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 min-h-[500px]">
@@ -832,7 +876,6 @@ const InterviewForm: React.FC<InterviewFormProps> = ({ session, onBack, onStart,
       </div>
   );
 
-  // Component: Smart Summary (Right Panel for Completed)
   const renderSmartSummary = () => (
       <div className="p-6 h-full overflow-y-auto custom-scrollbar bg-gray-50/50">
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
@@ -860,7 +903,6 @@ const InterviewForm: React.FC<InterviewFormProps> = ({ session, onBack, onStart,
       </div>
   );
 
-  // Component: Replay (Right Panel for Completed)
   const renderReplay = () => (
       <div className="p-6 h-full overflow-y-auto custom-scrollbar bg-gray-50/50 flex flex-col">
            <div className="bg-black rounded-xl aspect-video flex items-center justify-center text-white relative group overflow-hidden shadow-lg mb-4 shrink-0 w-full">
@@ -884,11 +926,9 @@ const InterviewForm: React.FC<InterviewFormProps> = ({ session, onBack, onStart,
   // --- Dynamic Layout Rendering ---
 
   const renderLeftContent = () => {
-      // Direct Mode or Appt Prep -> Assessment Analysis
       if (isDirect || (isAppointment && isPreparing) || isPendingConfirmation) {
           return renderAssessmentAnalysisPanel();
       }
-      // Appt Completed -> Feedback Form
       if (isAppointment && isCompleted) {
           return renderFeedbackForm(false); 
       }
@@ -896,17 +936,14 @@ const InterviewForm: React.FC<InterviewFormProps> = ({ session, onBack, onStart,
   };
 
   const renderRightContent = () => {
-      // Direct Mode -> Feedback Form
       if (isDirect || isPendingConfirmation) {
           return renderFeedbackForm(isPendingConfirmation); 
       }
-      // Appt Prep -> Tabs (Outline default)
       if (isAppointment && isPreparing) {
           if (activeTab === 'outline') return renderOutline();
           if (activeTab === 'info') return <div className="p-6"><div className="bg-white p-6 rounded-xl border">基本信息内容...</div></div>;
           if (activeTab === 'ref') return <div className="p-6 h-full"><AssessmentDetailTable detail={assessmentDetail} period={session.period} /></div>;
       }
-      // Appt Completed -> Tabs (Summary default)
       if (isAppointment && isCompleted) {
           if (activeTab === 'summary') return renderSmartSummary();
           if (activeTab === 'info') return <div className="p-6"><div className="bg-white p-6 rounded-xl border">基本信息内容...</div></div>;
@@ -916,7 +953,6 @@ const InterviewForm: React.FC<InterviewFormProps> = ({ session, onBack, onStart,
       return null;
   };
 
-  // Tabs Configuration based on state
   const getTabs = () => {
       if (isDirect || isPendingConfirmation) return []; 
       
@@ -1009,6 +1045,147 @@ const InterviewForm: React.FC<InterviewFormProps> = ({ session, onBack, onStart,
                   </div>
                   <div className="flex-1 overflow-hidden p-0">
                       <AssessmentDetailTable detail={assessmentDetail} period={session.period} />
+                  </div>
+              </div>
+          </div>
+      )}
+
+      {/* Share Confirmation Modal */}
+      {isShareModalOpen && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in">
+              <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden transform transition-all scale-100 flex flex-col">
+                  <div className="px-6 py-5 border-b border-gray-100 flex justify-between items-center bg-white">
+                      <div>
+                          <h3 className="text-xl font-bold text-gray-900">确认同步内容</h3>
+                          <p className="text-sm text-gray-500 mt-1">即将发送给 <span className="font-bold text-gray-800">{session.employeeName}</span> 确认</p>
+                      </div>
+                      <button onClick={() => setIsShareModalOpen(false)} className="p-2 hover:bg-gray-100 rounded-full text-gray-400 hover:text-gray-600 transition-colors">
+                          <X size={20} />
+                      </button>
+                  </div>
+                  
+                  <div className="p-6 bg-gray-50/30 flex-1 overflow-y-auto">
+                      <div className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4 px-1">配置员工可见范围</div>
+                      
+                      <div className="space-y-3">
+                          {/* 1. Smart Summary */}
+                          <div className={`group flex flex-col bg-white border rounded-xl transition-all ${shareConfig.items.summary ? 'border-purple-200 shadow-sm ring-1 ring-purple-50' : 'border-gray-200 hover:border-gray-300'}`}>
+                              <div className="flex items-center p-4 cursor-pointer" onClick={() => toggleShareItem('summary')}>
+                                  <div className={`w-10 h-10 rounded-full flex items-center justify-center mr-4 shrink-0 transition-colors ${shareConfig.items.summary ? 'bg-purple-100 text-purple-600' : 'bg-gray-100 text-gray-400'}`}>
+                                      <Sparkles size={20} />
+                                  </div>
+                                  <div className="flex-1">
+                                      <div className={`font-bold text-sm ${shareConfig.items.summary ? 'text-gray-900' : 'text-gray-500'}`}>智能纪要</div>
+                                      <div className="text-xs text-gray-400 mt-0.5">AI 生成的面谈总结与行动计划</div>
+                                  </div>
+                                  <div className={`w-5 h-5 rounded-full border flex items-center justify-center transition-colors ${shareConfig.items.summary ? 'bg-purple-600 border-purple-600' : 'border-gray-300 bg-white'}`}>
+                                      {shareConfig.items.summary && <Check size={12} className="text-white" />}
+                                  </div>
+                              </div>
+                          </div>
+
+                          {/* 2. Feedback Form (With Permissions) */}
+                          <div className={`group flex flex-col bg-white border rounded-xl transition-all ${shareConfig.items.form ? 'border-blue-200 shadow-sm ring-1 ring-blue-50' : 'border-gray-200 hover:border-gray-300'}`}>
+                              <div className="flex items-center p-4 cursor-pointer" onClick={() => toggleShareItem('form')}>
+                                  <div className={`w-10 h-10 rounded-full flex items-center justify-center mr-4 shrink-0 transition-colors ${shareConfig.items.form ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-400'}`}>
+                                      <FileText size={20} />
+                                  </div>
+                                  <div className="flex-1">
+                                      <div className={`font-bold text-sm ${shareConfig.items.form ? 'text-gray-900' : 'text-gray-500'}`}>绩效面谈记录表</div>
+                                      <div className="text-xs text-gray-400 mt-0.5">完整的面谈记录与评分详情</div>
+                                  </div>
+                                  <div className={`w-5 h-5 rounded-full border flex items-center justify-center transition-colors ${shareConfig.items.form ? 'bg-blue-600 border-blue-600' : 'border-gray-300 bg-white'}`}>
+                                      {shareConfig.items.form && <Check size={12} className="text-white" />}
+                                  </div>
+                              </div>
+                              
+                              {/* Permission Config */}
+                              {shareConfig.items.form && (
+                                  <div className="px-4 pb-4 pt-0 animate-in slide-in-from-top-1 fade-in">
+                                      <div className="bg-blue-50/50 rounded-lg p-3 flex items-center justify-between border border-blue-100">
+                                          <span className="text-xs font-medium text-blue-800">员工权限设置:</span>
+                                          <div className="flex bg-white rounded-md p-0.5 border border-blue-100 shadow-sm">
+                                              <button 
+                                                  onClick={() => setShareConfig(prev => ({...prev, formPermission: 'read'}))}
+                                                  className={`px-3 py-1.5 text-xs font-medium rounded transition-colors flex items-center ${shareConfig.formPermission === 'read' ? 'bg-blue-100 text-blue-700' : 'text-gray-500 hover:text-gray-700'}`}
+                                              >
+                                                  <Eye size={12} className="mr-1.5" /> 仅查看
+                                              </button>
+                                              <button 
+                                                  onClick={() => setShareConfig(prev => ({...prev, formPermission: 'edit'}))}
+                                                  className={`px-3 py-1.5 text-xs font-medium rounded transition-colors flex items-center ${shareConfig.formPermission === 'edit' ? 'bg-blue-100 text-blue-700' : 'text-gray-500 hover:text-gray-700'}`}
+                                              >
+                                                  <Edit3 size={12} className="mr-1.5" /> 允许补充/签字
+                                              </button>
+                                          </div>
+                                      </div>
+                                  </div>
+                              )}
+                          </div>
+
+                          {/* 3. Secondary Items Grid */}
+                          <div className="grid grid-cols-1 gap-3">
+                              {/* Basic Info */}
+                              <div 
+                                  className={`flex items-center p-3 bg-white border rounded-lg cursor-pointer transition-all ${shareConfig.items.info ? 'border-gray-400 bg-gray-50' : 'border-gray-200 hover:border-gray-300'}`}
+                                  onClick={() => toggleShareItem('info')}
+                              >
+                                  <div className={`w-8 h-8 rounded-full flex items-center justify-center mr-3 shrink-0 ${shareConfig.items.info ? 'bg-gray-200 text-gray-700' : 'bg-gray-100 text-gray-400'}`}>
+                                      <Info size={16} />
+                                  </div>
+                                  <span className={`text-sm font-medium flex-1 ${shareConfig.items.info ? 'text-gray-900' : 'text-gray-500'}`}>基本信息</span>
+                                  <div className={`w-4 h-4 rounded border flex items-center justify-center ${shareConfig.items.info ? 'bg-gray-600 border-gray-600' : 'border-gray-300 bg-white'}`}>
+                                      {shareConfig.items.info && <Check size={10} className="text-white" />}
+                                  </div>
+                              </div>
+
+                              {/* Reference */}
+                              <div 
+                                  className={`flex items-center p-3 bg-white border rounded-lg cursor-pointer transition-all ${shareConfig.items.ref ? 'border-gray-400 bg-gray-50' : 'border-gray-200 hover:border-gray-300'}`}
+                                  onClick={() => toggleShareItem('ref')}
+                              >
+                                  <div className={`w-8 h-8 rounded-full flex items-center justify-center mr-3 shrink-0 ${shareConfig.items.ref ? 'bg-gray-200 text-gray-700' : 'bg-gray-100 text-gray-400'}`}>
+                                      <BookOpen size={16} />
+                                  </div>
+                                  <span className={`text-sm font-medium flex-1 ${shareConfig.items.ref ? 'text-gray-900' : 'text-gray-500'}`}>参考资料</span>
+                                  <div className={`w-4 h-4 rounded border flex items-center justify-center ${shareConfig.items.ref ? 'bg-gray-600 border-gray-600' : 'border-gray-300 bg-white'}`}>
+                                      {shareConfig.items.ref && <Check size={10} className="text-white" />}
+                                  </div>
+                              </div>
+
+                              {/* Replay */}
+                              <div 
+                                  className={`flex items-center p-3 bg-white border rounded-lg cursor-pointer transition-all ${shareConfig.items.replay ? 'border-orange-300 bg-orange-50' : 'border-dashed border-gray-300 hover:border-gray-400'}`}
+                                  onClick={() => toggleShareItem('replay')}
+                              >
+                                  <div className={`w-8 h-8 rounded-full flex items-center justify-center mr-3 shrink-0 ${shareConfig.items.replay ? 'bg-orange-100 text-orange-600' : 'bg-gray-100 text-gray-400'}`}>
+                                      <Video size={16} />
+                                  </div>
+                                  <div className="flex-1">
+                                      <span className={`text-sm font-medium ${shareConfig.items.replay ? 'text-gray-900' : 'text-gray-500'}`}>回放/原文</span>
+                                      <span className="text-[10px] text-orange-500 ml-2 bg-orange-50 px-1.5 py-0.5 rounded border border-orange-100">敏感信息</span>
+                                  </div>
+                                  <div className={`w-4 h-4 rounded border flex items-center justify-center ${shareConfig.items.replay ? 'bg-orange-500 border-orange-500' : 'border-gray-300 bg-white'}`}>
+                                      {shareConfig.items.replay && <Check size={10} className="text-white" />}
+                                  </div>
+                              </div>
+                          </div>
+                      </div>
+                  </div>
+                  
+                  <div className="px-6 py-5 bg-white border-t border-gray-100 flex justify-end space-x-3">
+                      <button 
+                          onClick={() => setIsShareModalOpen(false)}
+                          className="px-5 py-2.5 bg-white border border-gray-300 text-gray-700 text-sm font-bold rounded-xl hover:bg-gray-50 transition-colors"
+                      >
+                          取消
+                      </button>
+                      <button 
+                          onClick={handleConfirmShare}
+                          className="px-8 py-2.5 bg-gray-900 text-white text-sm font-bold rounded-xl hover:bg-black shadow-lg shadow-gray-200 transition-all flex items-center"
+                      >
+                          <Send size={14} className="mr-2" /> 确认并发送
+                      </button>
                   </div>
               </div>
           </div>

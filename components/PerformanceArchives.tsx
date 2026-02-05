@@ -5,17 +5,27 @@ import {
     User, Settings, ChevronDown, MoreHorizontal,
     Maximize2, SlidersHorizontal, ChevronLeft, AlertCircle,
     CheckCircle2, Clock, FileText, Building2,
-    TrendingUp, TrendingDown, Minus, BarChart2
+    TrendingUp, TrendingDown, Minus, BarChart2, Layers,
+    X, ArrowLeft
 } from 'lucide-react';
-import { MOCK_EMPLOYEES } from '../constants';
+import { MOCK_EMPLOYEES, MOCK_ASSESSMENT_DETAILS } from '../constants';
 import EmployeeArchiveDrawer from './EmployeeArchiveDrawer';
+import AssessmentDetailTable from './AssessmentDetailTable';
 
 const PerformanceArchives: React.FC = () => {
-    const [activeTab, setActiveTab] = useState<'tasks' | 'objects'>('tasks');
-    const [searchTerm, setSearchTerm] = useState('');
+    // New State for Assessment Type (Level 1)
+    const [assessmentType, setAssessmentType] = useState<'employee' | 'organization'>('employee');
+    // View Type (Tasks vs Objects) (Level 2)
+    const [viewType, setViewType] = useState<'tasks' | 'objects'>('tasks');
+    
+    // Drill-down State
+    const [selectedTask, setSelectedTask] = useState<any>(null);
+    const [isDetailDrawerOpen, setIsDetailDrawerOpen] = useState(false);
+    const [selectedDetailId, setSelectedDetailId] = useState<string>('default');
+    
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
     
-    // State for Archive Drawer
+    // State for Archive Drawer (Global Employee History)
     const [isArchiveDrawerOpen, setIsArchiveDrawerOpen] = useState(false);
     const [selectedEmployeeForArchive, setSelectedEmployeeForArchive] = useState<any>(null);
 
@@ -23,9 +33,12 @@ const PerformanceArchives: React.FC = () => {
     const [trendTooltip, setTrendTooltip] = useState<{ item: any; rect: DOMRect } | null>(null);
     const trendTimeoutRef = useRef<number | null>(null);
 
+    // State for Abnormal Details Drawer
+    const [abnormalDrawerTask, setAbnormalDrawerTask] = useState<any>(null);
+
     // --- Mock Data ---
 
-    // Mock Data for "By Assessment Object" (按考核对象 - Employee Aggregated Archive)
+    // Mock Data for "By Assessment Object" (Employee)
     const objectData = [
         { 
             id: 'e1', 
@@ -169,7 +182,47 @@ const PerformanceArchives: React.FC = () => {
         },
     ];
 
-    // Mock Data for "By Task" (按考核任务 - Task View Aggregated)
+    // Mock Data for "By Assessment Object" (Organization)
+    const orgObjectData = [
+        { 
+            id: 'd1', 
+            name: '产研中心/产品部', 
+            code: 'DEP_001',
+            manager: '李总',
+            cycleCount: 4, 
+            latestCycle: '2025 Q2 组织绩效', 
+            latestScore: '94.0', 
+            latestGrade: 'A',
+            trend: 'up',
+            trendHistory: [{period:'24Q4', score:90}, {period:'25Q1', score:92}, {period:'25Q2', score:94}]
+        },
+        { 
+            id: 'd2', 
+            name: '营销中心/销售部', 
+            code: 'DEP_002',
+            manager: '王总',
+            cycleCount: 4, 
+            latestCycle: '2025 Q2 组织绩效', 
+            latestScore: '98.5', 
+            latestGrade: 'S',
+            trend: 'stable',
+            trendHistory: [{period:'24Q4', score:98}, {period:'25Q1', score:99}, {period:'25Q2', score:98.5}]
+        },
+        { 
+            id: 'd3', 
+            name: '职能中心/人力资源部', 
+            code: 'DEP_003',
+            manager: '张总',
+            cycleCount: 4, 
+            latestCycle: '2025 Q2 组织绩效', 
+            latestScore: '89.0', 
+            latestGrade: 'B+',
+            trend: 'down',
+            trendHistory: [{period:'24Q4', score:92}, {period:'25Q1', score:90}, {period:'25Q2', score:89}]
+        }
+    ];
+
+    // Mock Data for "By Task" (Task View Aggregated)
     const taskData = [
         { 
             id: 't1', 
@@ -180,6 +233,7 @@ const PerformanceArchives: React.FC = () => {
             requiredInterviewCount: 359, 
             completedInterviewCount: 45, 
             abnormalCount: 2, 
+            abnormalDetails: ['张三 - 离职', '李四 - 终止考核'],
             status: '执行中' 
         },
         { 
@@ -191,6 +245,7 @@ const PerformanceArchives: React.FC = () => {
             requiredInterviewCount: 300, 
             completedInterviewCount: 300, 
             abnormalCount: 0, 
+            abnormalDetails: [],
             status: '已归档' 
         },
         { 
@@ -202,6 +257,7 @@ const PerformanceArchives: React.FC = () => {
             requiredInterviewCount: 120, 
             completedInterviewCount: 110, 
             abnormalCount: 5, 
+            abnormalDetails: ['王五 - 长期请假', '赵六 - 拒绝签字', '孙七 - 离职', '周八 - 转岗', '吴九 - 终止'],
             status: '执行中' 
         },
         { 
@@ -213,6 +269,7 @@ const PerformanceArchives: React.FC = () => {
             requiredInterviewCount: 45, 
             completedInterviewCount: 38, 
             abnormalCount: 1, 
+            abnormalDetails: ['郑十 - 延长试用期'],
             status: '执行中' 
         },
         { 
@@ -224,6 +281,7 @@ const PerformanceArchives: React.FC = () => {
             requiredInterviewCount: 80, 
             completedInterviewCount: 80, 
             abnormalCount: 0, 
+            abnormalDetails: [],
             status: '已归档' 
         },
         { 
@@ -235,13 +293,21 @@ const PerformanceArchives: React.FC = () => {
             requiredInterviewCount: 320, 
             completedInterviewCount: 315, 
             abnormalCount: 0, 
+            abnormalDetails: [],
             status: '已归档' 
         }
     ];
 
     const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.checked) {
-            const allIds = activeTab === 'tasks' ? taskData.map(t => t.id) : objectData.map(o => o.id);
+            let allIds: string[] = [];
+            if (selectedTask) {
+                allIds = objectData.map(o => o.id); // In task detail view
+            } else if (viewType === 'tasks') {
+                allIds = taskData.map(t => t.id);
+            } else {
+                allIds = assessmentType === 'employee' ? objectData.map(o => o.id) : orgObjectData.map(o => o.id);
+            }
             setSelectedIds(new Set(allIds));
         } else {
             setSelectedIds(new Set());
@@ -260,6 +326,25 @@ const PerformanceArchives: React.FC = () => {
         setSelectedEmployeeForArchive(employee);
         setIsArchiveDrawerOpen(true);
         setTrendTooltip(null); // Close tooltip if open
+    };
+
+    // --- Drill Down Handlers ---
+    const handleTaskClick = (e: React.MouseEvent, task: any) => {
+        e.stopPropagation();
+        setSelectedTask(task);
+        setSelectedIds(new Set()); // Reset selection
+    };
+
+    const handleBackToTasks = () => {
+        setSelectedTask(null);
+        setSelectedIds(new Set());
+    };
+
+    const handleOpenDetail = (e: React.MouseEvent, employee: any) => {
+        e.stopPropagation();
+        const detailId = employee.id === 'e1' ? '1' : 'default'; // Mock mapping
+        setSelectedDetailId(detailId);
+        setIsDetailDrawerOpen(true);
     };
 
     // --- Trend Tooltip Handlers ---
@@ -289,6 +374,12 @@ const PerformanceArchives: React.FC = () => {
         trendTimeoutRef.current = window.setTimeout(() => {
             setTrendTooltip(null);
         }, 300);
+    };
+
+    // Abnormal Drawer Handler
+    const handleAbnormalClick = (e: React.MouseEvent, item: any) => {
+        e.stopPropagation();
+        setAbnormalDrawerTask(item);
     };
 
     // Helper: Render Grade Tag
@@ -376,9 +467,239 @@ const PerformanceArchives: React.FC = () => {
         );
     };
 
+    // Helper: Render Abnormal Drawer
+    const renderAbnormalDrawer = () => {
+        if (!abnormalDrawerTask) return null;
+
+        const details = abnormalDrawerTask.abnormalDetails.map((str: string) => {
+            const [name, reason] = str.split(' - ');
+            return { name, reason };
+        });
+
+        return (
+            <div className="fixed inset-0 z-50 flex justify-end bg-black/30 backdrop-blur-sm">
+                <div className="w-[500px] bg-white h-full shadow-2xl flex flex-col animate-in slide-in-from-right duration-300">
+                    <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center bg-gray-50/50">
+                        <div>
+                            <h3 className="text-lg font-bold text-gray-900">异常明细</h3>
+                            <p className="text-sm text-gray-500 mt-0.5">{abnormalDrawerTask.taskName}</p>
+                        </div>
+                        <button onClick={() => setAbnormalDrawerTask(null)} className="p-2 hover:bg-gray-200 rounded-full text-gray-500 transition-colors">
+                            <X size={20} />
+                        </button>
+                    </div>
+                    <div className="flex-1 overflow-y-auto p-6 bg-white">
+                        <table className="w-full text-left border-collapse text-sm border border-gray-200 rounded-lg">
+                            <thead className="bg-gray-50 text-gray-700 font-medium">
+                                <tr>
+                                    <th className="p-3 border-b border-gray-200">异常对象</th>
+                                    <th className="p-3 border-b border-gray-200">异常原因</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-100">
+                                {details.map((detail: any, idx: number) => (
+                                    <tr key={idx} className="hover:bg-gray-50">
+                                        <td className="p-3 text-gray-900 font-medium">{detail.name}</td>
+                                        <td className="p-3 text-red-600 bg-red-50/50">{detail.reason}</td>
+                                    </tr>
+                                ))}
+                                {details.length === 0 && (
+                                    <tr>
+                                        <td colSpan={2} className="p-6 text-center text-gray-400">无异常记录</td>
+                                    </tr>
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        );
+    };
+
+    // Helper: Render Task Detail View (Drill Down)
+    const renderTaskDetailView = () => {
+        return (
+            <div className="flex flex-col h-full bg-white">
+                {/* Header with Back Button */}
+                <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center bg-gray-50/50">
+                    <div className="flex items-center">
+                        <button onClick={handleBackToTasks} className="mr-3 p-1.5 hover:bg-gray-200 rounded-full text-gray-500 transition-colors">
+                            <ArrowLeft size={18} />
+                        </button>
+                        <div>
+                            <div className="flex items-center space-x-2">
+                                <h2 className="text-lg font-bold text-gray-900">{selectedTask.taskName}</h2>
+                                <span className={`text-xs px-2 py-0.5 rounded border ${selectedTask.status === '执行中' ? 'bg-blue-50 text-blue-600 border-blue-100' : 'bg-gray-100 text-gray-500 border-gray-200'}`}>
+                                    {selectedTask.status}
+                                </span>
+                            </div>
+                            <div className="text-xs text-gray-500 mt-0.5 flex items-center space-x-3">
+                                <span>周期: {selectedTask.cycle}</span>
+                                <span>•</span>
+                                <span>参与人数: {selectedTask.coveredCount}</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                        <div className="relative">
+                            <input 
+                                type="text" 
+                                placeholder="搜索姓名/工号..." 
+                                className="pl-8 pr-4 py-1.5 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-primary w-48 bg-white"
+                            />
+                            <Search className="absolute left-2.5 top-2.5 text-gray-400" size={14} />
+                        </div>
+                        <button className="px-3 py-1.5 bg-white border border-gray-300 text-gray-600 text-sm rounded hover:bg-gray-50 flex items-center">
+                            <Download size={14} className="mr-1.5" /> 导出结果
+                        </button>
+                    </div>
+                </div>
+
+                {/* Employee List Table for this Task */}
+                <div className="flex-1 overflow-auto custom-scrollbar">
+                    <table className="w-full text-left border-collapse text-sm">
+                        <thead className="bg-gray-50 text-gray-700 font-medium border-b border-gray-200 sticky top-0 z-10">
+                            <tr>
+                                <th className="p-3 w-12 text-center">
+                                    <input type="checkbox" className="rounded text-primary focus:ring-primary cursor-pointer" onChange={handleSelectAll} />
+                                </th>
+                                <th className="p-3 font-medium">员工信息</th>
+                                <th className="p-3 font-medium">部门 / 职位</th>
+                                <th className="p-3 font-medium text-center">当前状态</th>
+                                <th className="p-3 font-medium">考核结果</th>
+                                <th className="p-3 font-medium text-center">绩效面谈</th>
+                                <th className="p-3 font-medium text-right">操作</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100 bg-white">
+                            {objectData.map((item) => (
+                                <tr key={item.id} className="hover:bg-blue-50/30 transition-colors group cursor-pointer" onClick={(e) => handleOpenDetail(e, item)}>
+                                    <td className="p-3 text-center" onClick={e => e.stopPropagation()}>
+                                        <input type="checkbox" className="rounded text-primary focus:ring-primary cursor-pointer" checked={selectedIds.has(item.id)} onChange={() => handleCheckboxChange(item.id)} />
+                                    </td>
+                                    <td className="p-3">
+                                        <div className="flex items-center">
+                                            <img src={item.avatar} alt="" className="w-8 h-8 rounded-full border border-gray-100 mr-3" />
+                                            <div className="flex flex-col">
+                                                <span className="text-gray-900 font-medium">{item.name}</span>
+                                                <span className="text-[10px] text-gray-400 font-mono">{item.empId}</span>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td className="p-3">
+                                        <div className="text-gray-900 text-xs">{item.dept}</div>
+                                        <div className="text-gray-500 text-[10px]">{item.position}</div>
+                                    </td>
+                                    <td className="p-3 text-center">
+                                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-50 text-green-700 border border-green-100">
+                                            已完成
+                                        </span>
+                                    </td>
+                                    <td className="p-3">
+                                        <div className="flex items-center space-x-2">
+                                            <span className="font-bold text-gray-800">{item.latestScore}</span>
+                                            {renderGradeTag(item.latestGrade)}
+                                        </div>
+                                    </td>
+                                    <td className="p-3 text-center">
+                                        <span className="text-xs text-gray-500">{item.interviewCount > 0 ? '已完成' : '未开始'}</span>
+                                    </td>
+                                    <td className="p-3 text-right">
+                                        <button 
+                                            onClick={(e) => handleOpenDetail(e, item)}
+                                            className="text-blue-600 hover:text-blue-800 text-xs font-medium hover:underline"
+                                        >
+                                            查看详情
+                                        </button>
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        );
+    };
+
     // Render Table Content
     const renderTable = () => {
-        if (activeTab === 'objects') {
+        if (selectedTask) {
+            return renderTaskDetailView();
+        }
+
+        if (viewType === 'objects') {
+            if (assessmentType === 'organization') {
+                return (
+                    <table className="w-full text-left border-collapse text-sm">
+                        <thead className="bg-gray-50 text-gray-700 font-medium border-b border-gray-200">
+                            <tr>
+                                <th className="p-3 w-12 text-center">
+                                    <input type="checkbox" className="rounded text-primary focus:ring-primary cursor-pointer" onChange={handleSelectAll} />
+                                </th>
+                                <th className="p-3 font-medium">部门名称</th>
+                                <th className="p-3 font-medium">部门编码</th>
+                                <th className="p-3 font-medium">负责人</th>
+                                <th className="p-3 font-medium text-center">考核周期数</th>
+                                <th className="p-3 font-medium">最近考核周期</th>
+                                <th className="p-3 font-medium">最近考核结果</th>
+                                <th className="p-3 font-medium text-center">绩效趋势</th>
+                                <th className="p-3 font-medium text-right">操作</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100 bg-white">
+                            {orgObjectData.map((item) => (
+                                <tr key={item.id} className="hover:bg-blue-50/30 transition-colors group cursor-pointer" onClick={(e) => handleViewArchive(e, item)}>
+                                    <td className="p-3 text-center" onClick={e => e.stopPropagation()}>
+                                        <input type="checkbox" className="rounded text-primary focus:ring-primary cursor-pointer" checked={selectedIds.has(item.id)} onChange={() => handleCheckboxChange(item.id)} />
+                                    </td>
+                                    <td className="p-3">
+                                        <div className="flex items-center">
+                                            <div className="w-8 h-8 rounded bg-gray-100 flex items-center justify-center mr-3 text-blue-600 font-bold border border-blue-100">
+                                                <Building2 size={16} />
+                                            </div>
+                                            <div className="flex flex-col">
+                                                <span className="text-gray-900 font-medium">{item.name}</span>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td className="p-3 text-gray-600 font-mono text-xs">{item.code}</td>
+                                    <td className="p-3 text-gray-700">{item.manager}</td>
+                                    <td className="p-3 text-gray-700 text-center font-mono">{item.cycleCount}</td>
+                                    <td className="p-3">
+                                        <span className="text-blue-600 hover:underline cursor-pointer text-xs">{item.latestCycle}</span>
+                                    </td>
+                                    <td className="p-3">
+                                        <div className="flex items-center space-x-2">
+                                            <span className="font-bold text-gray-800">{item.latestScore}</span>
+                                            {renderGradeTag(item.latestGrade)}
+                                        </div>
+                                    </td>
+                                    <td className="p-3 text-center">
+                                        <div 
+                                            className="flex justify-center p-1 cursor-pointer w-full h-full"
+                                            onMouseEnter={(e) => handleTrendMouseEnter(e, item)}
+                                            onMouseLeave={handleTrendMouseLeave}
+                                            onClick={(e) => e.stopPropagation()}
+                                        >
+                                            {renderTrendIcon(item.trend)}
+                                        </div>
+                                    </td>
+                                    <td className="p-3 text-right">
+                                        <button 
+                                            onClick={(e) => handleViewArchive(e, item)}
+                                            className="text-blue-600 hover:text-blue-800 text-xs font-medium hover:underline"
+                                        >
+                                            查看档案
+                                        </button>
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                );
+            }
+
+            // Employee Object Table
             return (
                 <table className="w-full text-left border-collapse text-sm">
                     <thead className="bg-gray-50 text-gray-700 font-medium border-b border-gray-200">
@@ -466,13 +787,9 @@ const PerformanceArchives: React.FC = () => {
                         </th>
                         <th className="p-3 font-medium">考核任务名称</th>
                         <th className="p-3 font-medium">考核周期</th>
-                        <th className="p-3 font-medium">覆盖人数</th>
-                        <th className="p-3 font-medium">已评分人数</th>
-                        <th className="p-3 font-medium font-bold text-gray-900">需面谈人数</th>
-                        <th className="p-3 font-medium font-bold text-gray-900">已完成面谈</th>
-                        <th className="p-3 font-medium font-bold text-gray-900 w-48">面谈完成率</th>
-                        <th className="p-3 font-medium">异常面谈</th>
-                        <th className="p-3 font-medium">当前状态</th>
+                        <th className="p-3 font-medium">参与考核数</th>
+                        <th className="p-3 font-medium font-bold text-gray-900 w-64">绩效面谈情况 (完成/应谈)</th>
+                        <th className="p-3 font-medium">异常数</th>
                         <th className="p-3 font-medium text-right">操作</th>
                     </tr>
                 </thead>
@@ -485,47 +802,38 @@ const PerformanceArchives: React.FC = () => {
                                     <input type="checkbox" className="rounded text-primary focus:ring-primary cursor-pointer" checked={selectedIds.has(item.id)} onChange={() => handleCheckboxChange(item.id)} />
                                 </td>
                                 <td className="p-3">
-                                    <span className="text-blue-600 font-medium hover:underline cursor-pointer">{item.taskName}</span>
+                                    <span 
+                                        onClick={(e) => handleTaskClick(e, item)}
+                                        className="text-blue-600 font-medium hover:underline cursor-pointer"
+                                    >
+                                        {item.taskName}
+                                    </span>
                                 </td>
                                 <td className="p-3 text-gray-600 text-xs">{item.cycle}</td>
-                                <td className="p-3 text-gray-700">{item.coveredCount}</td>
-                                <td className="p-3 text-gray-700">{item.ratedCount}</td>
-                                <td className="p-3 text-gray-900 font-bold">{item.requiredInterviewCount}</td>
+                                <td className="p-3 text-gray-700 font-mono pl-6">{item.coveredCount}</td>
                                 <td className="p-3">
-                                    <span className="text-blue-600 hover:underline cursor-pointer font-bold">{item.completedInterviewCount}</span>
-                                </td>
-                                <td className="p-3">
-                                    <div className="flex items-center">
-                                        <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden mr-2">
-                                            <div 
-                                                className={`h-full rounded-full transition-all duration-500 ${completionRate >= 100 ? 'bg-green-500' : 'bg-blue-500'}`} 
-                                                style={{ width: `${Math.min(100, completionRate)}%` }}
-                                            ></div>
-                                        </div>
-                                        <span className="text-xs text-gray-600 w-8 text-right font-medium">{completionRate}%</span>
-                                    </div>
+                                    <span className="text-gray-900 font-bold text-sm">
+                                        {item.completedInterviewCount} / {item.requiredInterviewCount}
+                                    </span>
                                 </td>
                                 <td className="p-3">
                                     {item.abnormalCount > 0 ? (
-                                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-50 text-red-600 border border-red-100">
+                                        <span 
+                                            onClick={(e) => handleAbnormalClick(e, item)}
+                                            className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-600 border border-red-200 cursor-pointer hover:bg-red-200 transition-colors"
+                                        >
                                             <AlertCircle size={10} className="mr-1" />
                                             {item.abnormalCount} 异常
                                         </span>
                                     ) : (
-                                        <span className="text-gray-400">-</span>
+                                        <span className="text-gray-300 text-xs pl-2">-</span>
                                     )}
                                 </td>
-                                <td className="p-3">
-                                    <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium border ${
-                                        item.status === '执行中' 
-                                        ? 'bg-blue-50 text-blue-600 border-blue-100' 
-                                        : 'bg-gray-100 text-gray-500 border-gray-200'
-                                    }`}>
-                                        {item.status}
-                                    </span>
-                                </td>
                                 <td className="p-3 text-right">
-                                    <button className="text-blue-600 hover:text-blue-800 text-xs font-medium hover:underline">
+                                    <button 
+                                        onClick={(e) => handleTaskClick(e, item)}
+                                        className="text-blue-600 hover:text-blue-800 text-xs font-medium hover:underline"
+                                    >
                                         进入
                                     </button>
                                 </td>
@@ -539,107 +847,135 @@ const PerformanceArchives: React.FC = () => {
 
     return (
         <div className="flex flex-col h-full bg-white relative">
-            {/* Top Navigation Bar */}
-            <div className="h-12 border-b border-gray-200 flex items-center px-4 space-x-6">
-                <button 
-                    onClick={() => setActiveTab('tasks')}
-                    className={`h-full text-sm font-medium px-2 border-b-2 transition-colors ${activeTab === 'tasks' ? 'border-primary text-primary' : 'border-transparent text-gray-600 hover:text-gray-800'}`}
-                >
-                    按任务
-                </button>
-                <button 
-                    onClick={() => setActiveTab('objects')}
-                    className={`h-full text-sm font-medium px-2 border-b-2 transition-colors ${activeTab === 'objects' ? 'border-primary text-primary' : 'border-transparent text-gray-600 hover:text-gray-800'}`}
-                >
-                    按考核对象
-                </button>
-            </div>
-
-            {/* Filter & Action Bar */}
-            <div className="px-4 py-3 border-b border-gray-200 flex justify-between items-center bg-gray-50/30">
-                <div className="flex space-x-2">
-                    <button className="px-3 py-1.5 bg-white border border-primary text-primary text-sm rounded hover:bg-primary-50 transition-colors shadow-sm">
-                        员工考核
-                    </button>
-                    <button className="px-3 py-1.5 bg-white border border-gray-300 text-gray-600 text-sm rounded hover:bg-gray-50 transition-colors shadow-sm">
-                        组织考核
-                    </button>
-                </div>
-
-                <div className="flex items-center space-x-3">
-                    <button className="px-3 py-1.5 bg-white border border-green-200 text-green-600 text-sm rounded hover:bg-green-50 transition-colors shadow-sm flex items-center">
-                        <Download size={14} className="mr-1.5" /> 导出
-                    </button>
-                    <button className="p-1.5 bg-white border border-gray-300 text-gray-500 rounded hover:bg-gray-50 transition-colors shadow-sm">
-                        <Filter size={16} />
-                    </button>
-                    <button className="p-1.5 bg-white border border-gray-300 text-gray-500 rounded hover:bg-gray-50 transition-colors shadow-sm">
-                        <Settings size={16} />
-                    </button>
-                    <button className="p-1.5 bg-white border border-gray-300 text-gray-500 rounded hover:bg-gray-50 transition-colors shadow-sm">
-                        <Maximize2 size={16} />
-                    </button>
-                </div>
-            </div>
-
-            {/* Secondary Filter Bar (Search) */}
-            <div className="px-4 py-2 border-b border-gray-200 flex justify-end items-center bg-white">
-                <div className="flex items-center space-x-2">
-                    <div className="relative">
-                        <select className="appearance-none pl-3 pr-8 py-1.5 bg-white border border-gray-300 rounded text-sm text-gray-600 focus:outline-none focus:border-primary hover:border-gray-400 transition-colors cursor-pointer">
-                            <option>{activeTab === 'tasks' ? '考核周期' : '职级'}</option>
-                            <option>{activeTab === 'tasks' ? '任务状态' : '职位'}</option>
-                            <option>部门</option>
-                        </select>
-                        <ChevronDown className="absolute right-2 top-2.5 text-gray-400 pointer-events-none" size={14} />
-                    </div>
-                    <div className="relative">
-                        <input 
-                            type="text" 
-                            placeholder={activeTab === 'tasks' ? "搜索考核任务名称" : "搜索员工、工号、部门"}
-                            className="pl-3 pr-8 py-1.5 border border-gray-300 rounded text-sm w-64 focus:outline-none focus:border-primary hover:border-gray-400 transition-colors"
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                        />
-                        <Search className="absolute right-2.5 top-2.5 text-gray-400" size={14} />
+            
+            {/* Level 1: Assessment Type Tabs (Employee vs Org) - Hide when in Drill Down */}
+            {!selectedTask && (
+                <div className="px-6 pt-4 border-b border-gray-200 bg-white sticky top-0 z-20">
+                    <div className="flex space-x-8">
+                        <button 
+                            onClick={() => setAssessmentType('employee')}
+                            className={`pb-3 text-sm font-bold transition-all border-b-2 ${
+                                assessmentType === 'employee' 
+                                ? 'border-blue-600 text-blue-600' 
+                                : 'border-transparent text-gray-500 hover:text-gray-800'
+                            }`}
+                        >
+                            员工考核
+                        </button>
+                        <button 
+                            onClick={() => setAssessmentType('organization')}
+                            className={`pb-3 text-sm font-bold transition-all border-b-2 ${
+                                assessmentType === 'organization' 
+                                ? 'border-blue-600 text-blue-600' 
+                                : 'border-transparent text-gray-500 hover:text-gray-800'
+                            }`}
+                        >
+                            组织考核
+                        </button>
                     </div>
                 </div>
-            </div>
+            )}
+
+            {/* Level 2: Toolbar (View Type & Actions) - Hide when in Drill Down */}
+            {!selectedTask && (
+                <div className="px-6 py-3 border-b border-gray-200 flex justify-between items-center bg-white">
+                    
+                    {/* View Switcher (Tasks vs Objects) */}
+                    <div className="flex bg-gray-100 p-1 rounded-lg">
+                        <button 
+                            onClick={() => setViewType('tasks')}
+                            className={`px-4 py-1.5 text-xs font-medium rounded-md transition-all ${viewType === 'tasks' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-900'}`}
+                        >
+                            按考核任务
+                        </button>
+                        <button 
+                            onClick={() => setViewType('objects')}
+                            className={`px-4 py-1.5 text-xs font-medium rounded-md transition-all ${viewType === 'objects' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-900'}`}
+                        >
+                            按考核对象
+                        </button>
+                    </div>
+
+                    {/* Right Actions */}
+                    <div className="flex items-center space-x-3">
+                        <button className="px-3 py-1.5 bg-white border border-green-200 text-green-600 text-sm rounded hover:bg-green-50 transition-colors shadow-sm flex items-center">
+                            <Download size={14} className="mr-1.5" /> 导出
+                        </button>
+                        <button className="p-1.5 bg-white border border-gray-300 text-gray-500 rounded hover:bg-gray-50 transition-colors shadow-sm">
+                            <Filter size={16} />
+                        </button>
+                        <button className="p-1.5 bg-white border border-gray-300 text-gray-500 rounded hover:bg-gray-50 transition-colors shadow-sm">
+                            <Settings size={16} />
+                        </button>
+                        <button className="p-1.5 bg-white border border-gray-300 text-gray-500 rounded hover:bg-gray-50 transition-colors shadow-sm">
+                            <Maximize2 size={16} />
+                        </button>
+                    </div>
+                </div>
+            )}
 
             {/* Table Content */}
             <div className="flex-1 overflow-auto custom-scrollbar">
                 {renderTable()}
             </div>
 
-            {/* Pagination Footer */}
-            <div className="px-4 py-3 border-t border-gray-200 flex justify-end items-center space-x-2 bg-white text-xs text-gray-600">
-                <button className="w-7 h-7 flex items-center justify-center border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50">
-                    <ChevronLeft size={14} />
-                </button>
-                <button className="w-7 h-7 flex items-center justify-center border border-primary text-primary bg-primary-50 rounded">1</button>
-                <button className="w-7 h-7 flex items-center justify-center border border-gray-300 rounded hover:bg-gray-50">2</button>
-                <button className="w-7 h-7 flex items-center justify-center border border-gray-300 rounded hover:bg-gray-50">
-                    <ChevronRight size={14} />
-                </button>
-                <select className="border border-gray-300 rounded py-1 px-2 focus:outline-none">
-                    <option>100 条/页</option>
-                    <option>50 条/页</option>
-                    <option>20 条/页</option>
-                </select>
-                <span>跳至</span>
-                <input type="text" className="w-10 border border-gray-300 rounded py-1 px-1 text-center" />
-                <span>页</span>
-            </div>
+            {/* Pagination Footer - Hide in Drill Down for cleaner look or keep if paginated */}
+            {!selectedTask && (
+                <div className="px-4 py-3 border-t border-gray-200 flex justify-end items-center space-x-2 bg-white text-xs text-gray-600">
+                    <button className="w-7 h-7 flex items-center justify-center border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50">
+                        <ChevronLeft size={14} />
+                    </button>
+                    <button className="w-7 h-7 flex items-center justify-center border border-primary text-primary bg-primary-50 rounded">1</button>
+                    <button className="w-7 h-7 flex items-center justify-center border border-gray-300 rounded hover:bg-gray-50">2</button>
+                    <button className="w-7 h-7 flex items-center justify-center border border-gray-300 rounded hover:bg-gray-50">
+                        <ChevronRight size={14} />
+                    </button>
+                    <select className="border border-gray-300 rounded py-1 px-2 focus:outline-none">
+                        <option>100 条/页</option>
+                        <option>50 条/页</option>
+                        <option>20 条/页</option>
+                    </select>
+                    <span>跳至</span>
+                    <input type="text" className="w-10 border border-gray-300 rounded py-1 px-1 text-center" />
+                    <span>页</span>
+                </div>
+            )}
 
-            {/* Archive Drawer */}
+            {/* Archive Drawer (Global) */}
             <EmployeeArchiveDrawer 
                 isOpen={isArchiveDrawerOpen}
                 onClose={() => setIsArchiveDrawerOpen(false)}
                 employee={selectedEmployeeForArchive}
             />
 
+            {/* Assessment Detail Drawer (Drill Down) */}
+            {isDetailDrawerOpen && (
+                <div className="absolute inset-0 z-30 flex justify-end bg-black/20 backdrop-blur-[1px] transition-all">
+                    <div className="w-[800px] bg-white h-full shadow-2xl flex flex-col animate-in slide-in-from-right duration-300">
+                        <div className="flex items-center justify-between p-4 border-b border-gray-200 bg-gray-50">
+                            <h3 className="font-bold text-gray-800 flex items-center">
+                                <FileText size={18} className="mr-2 text-blue-600" />
+                                绩效考核表详情
+                            </h3>
+                            <button onClick={() => setIsDetailDrawerOpen(false)} className="p-1 rounded-full hover:bg-gray-200 text-gray-500">
+                                <X size={20} />
+                            </button>
+                        </div>
+                        <div className="flex-1 overflow-hidden p-0">
+                            <AssessmentDetailTable 
+                                detail={MOCK_ASSESSMENT_DETAILS[selectedDetailId] || MOCK_ASSESSMENT_DETAILS['default']} 
+                                period={selectedTask?.taskName || '考核周期'} 
+                            />
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* Trend Tooltip (Fixed Overlay) */}
             {renderTooltipContent()}
+            
+            {/* Abnormal Details Drawer */}
+            {renderAbnormalDrawer()}
         </div>
     );
 };

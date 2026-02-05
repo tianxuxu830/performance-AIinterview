@@ -4,7 +4,7 @@ import {
   ArrowLeft, Calendar, Clock, Users, 
   FileText, Check, ChevronDown, UserPlus, Info,
   Hourglass, X, Video, Sparkles, TrendingUp,
-  BarChart2, BookOpen, AlertCircle, Eye, Layers
+  BarChart2, BookOpen, AlertCircle, Eye, Layers, Lock
 } from 'lucide-react';
 import { MOCK_EMPLOYEES, MOCK_TEMPLATES, MOCK_ASSESSMENT_DETAILS, MOCK_AI_OUTLINE, ExtendedAssessmentDetail } from '../constants';
 import { InterviewType, SchedulingStatus, DimensionItem } from '../types';
@@ -15,6 +15,10 @@ interface InterviewSchedulerProps {
   employeeIds: string[];
   onBack: () => void;
   onSubmit: (data: any) => void;
+  // New props for fixed data
+  defaultTopic?: string;
+  defaultTemplateId?: string;
+  defaultAssessmentCycle?: string;
 }
 
 const INTERVIEWER_ROLES = [
@@ -32,15 +36,22 @@ const ASSESSMENT_CYCLES = [
     '试用期评估'
 ];
 
-const InterviewScheduler: React.FC<InterviewSchedulerProps> = ({ employeeIds, onBack, onSubmit }) => {
+const InterviewScheduler: React.FC<InterviewSchedulerProps> = ({ 
+    employeeIds, 
+    onBack, 
+    onSubmit,
+    defaultTopic = '2023 Q3 绩效面谈',
+    defaultTemplateId = MOCK_TEMPLATES[0].id,
+    defaultAssessmentCycle = '2025 Q4'
+}) => {
   // --- Form State (Basic Info) ---
-  const [topic, setTopic] = useState('2023 Q3 绩效面谈');
+  const [topic, setTopic] = useState(defaultTopic);
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [startTime, setStartTime] = useState('10:00');
   const [duration, setDuration] = useState('60');
   const [interviewType, setInterviewType] = useState<InterviewType>(InterviewType.Regular);
-  const [templateId, setTemplateId] = useState(MOCK_TEMPLATES[0].id);
-  const [assessmentCycle, setAssessmentCycle] = useState('2025 Q4');
+  const [templateId, setTemplateId] = useState(defaultTemplateId);
+  const [assessmentCycle, setAssessmentCycle] = useState(defaultAssessmentCycle);
   
   // Participants State
   const [currentEmployeeIds, setCurrentEmployeeIds] = useState<string[]>(employeeIds);
@@ -223,20 +234,28 @@ const InterviewScheduler: React.FC<InterviewSchedulerProps> = ({ employeeIds, on
           <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm space-y-4">
               <div className="grid grid-cols-2 gap-4">
                   <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">面谈主题</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center">
+                          面谈主题
+                          <Lock size={12} className="ml-1 text-gray-400" />
+                      </label>
                       <input 
                         type="text" 
                         value={topic}
+                        disabled
                         onChange={(e) => setTopic(e.target.value)}
-                        className="w-full border border-gray-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-blue-500"
+                        className="w-full border border-gray-200 bg-gray-50 text-gray-500 cursor-not-allowed rounded-lg p-2.5 text-sm focus:ring-0"
                       />
                   </div>
                   <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">关联考核周期</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center">
+                          关联考核周期
+                          <Lock size={12} className="ml-1 text-gray-400" />
+                      </label>
                       <select 
                         value={assessmentCycle}
+                        disabled
                         onChange={(e) => setAssessmentCycle(e.target.value)}
-                        className="w-full border border-gray-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-blue-500 bg-white"
+                        className="w-full border border-gray-200 bg-gray-50 text-gray-500 cursor-not-allowed rounded-lg p-2.5 text-sm focus:ring-0"
                       >
                           {ASSESSMENT_CYCLES.map(cycle => (
                               <option key={cycle} value={cycle}>{cycle}</option>
@@ -244,11 +263,15 @@ const InterviewScheduler: React.FC<InterviewSchedulerProps> = ({ employeeIds, on
                       </select>
                   </div>
                   <div className="col-span-2">
-                      <label className="block text-sm font-medium text-gray-700 mb-1">面谈模板</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center">
+                          面谈模板
+                          <Lock size={12} className="ml-1 text-gray-400" />
+                      </label>
                       <select 
                         value={templateId}
+                        disabled
                         onChange={(e) => setTemplateId(e.target.value)}
-                        className="w-full border border-gray-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-blue-500 bg-white"
+                        className="w-full border border-gray-200 bg-gray-50 text-gray-500 cursor-not-allowed rounded-lg p-2.5 text-sm focus:ring-0"
                       >
                           {MOCK_TEMPLATES.map(t => (
                               <option key={t.id} value={t.id}>{t.name}</option>
@@ -261,19 +284,18 @@ const InterviewScheduler: React.FC<InterviewSchedulerProps> = ({ employeeIds, on
           {/* Participants */}
           <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm">
              <div className="flex justify-between items-center mb-3">
-                 <label className="text-sm font-medium text-gray-700">面谈对象</label>
-                 <button onClick={() => setIsSelectorOpen(true)} className="text-xs text-blue-600 hover:underline flex items-center">
-                     <UserPlus size={12} className="mr-1"/> 修改
-                 </button>
+                 <label className="text-sm font-medium text-gray-700 flex items-center">
+                     面谈对象
+                     <span className="text-xs text-gray-400 ml-2 font-normal">(已固定)</span>
+                 </label>
+                 {/* Modify button removed */}
              </div>
              <div className="flex flex-wrap gap-2 mb-4">
                   {selectedEmployees.map(emp => (
-                    <div key={emp.id} className="flex items-center bg-gray-50 border border-gray-200 rounded-full pl-1 pr-2 py-1">
+                    <div key={emp.id} className="flex items-center bg-gray-50 border border-gray-200 rounded-full pl-1 pr-3 py-1">
                        <img src={emp.avatar} alt="" className="w-5 h-5 rounded-full mr-2" />
                        <span className="text-xs text-gray-700">{emp.name}</span>
-                       {isBatch && (
-                           <button onClick={() => handleRemoveEmployee(emp.id)} className="ml-2 text-gray-400 hover:text-red-500"><X size={12}/></button>
-                       )}
+                       {/* Remove button removed for fixed participants */}
                     </div>
                   ))}
              </div>

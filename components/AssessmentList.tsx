@@ -3,9 +3,9 @@ import React, { useState } from 'react';
 import { 
     Search, ChevronDown, CheckCircle2, Clock, MoreHorizontal, 
     User, MessageSquarePlus, Calendar as CalendarIcon, AlertCircle, Video, 
-    FileText, Trash2, Download, Archive, Edit3,
-    TrendingUp, TrendingDown, Minus, PieChart, Users, Bell,
-    Briefcase, PlayCircle, CheckCircle
+    FileText, Trash2, Download, Archive, Edit3, X,
+    TrendingUp, TrendingDown, Minus, Users, Bell,
+    Briefcase, PlayCircle, CheckCircle, ArrowLeft
 } from 'lucide-react';
 import { MOCK_ASSESSMENTS, MOCK_PERFORMANCE_TRENDS, MOCK_EMPLOYEES } from '../constants';
 import { InterviewSession, Status } from '../types';
@@ -15,17 +15,49 @@ interface AssessmentListProps {
   sessions: InterviewSession[];
   onScheduleSession: (session: InterviewSession) => void;
   onSelectSession: (session: InterviewSession) => void;
+  onCancelSession: (id: string) => void;
+  onBatchUpdateSessions: (ids: string[], updates: Partial<InterviewSession>) => void;
+  onBack?: () => void; // New prop for navigation
+  taskName?: string; // New prop for dynamic title
 }
 
-const AssessmentList: React.FC<AssessmentListProps> = ({ onInitiateInterview, sessions, onScheduleSession, onSelectSession }) => {
+const AssessmentList: React.FC<AssessmentListProps> = ({ 
+    onInitiateInterview, 
+    sessions, 
+    onScheduleSession, 
+    onSelectSession,
+    onCancelSession,
+    onBatchUpdateSessions,
+    onBack,
+    taskName = '业绩考核5月'
+}) => {
   const [activeTab, setActiveTab] = useState<'assessment' | 'interview'>('assessment');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [interviewSelectedIds, setInterviewSelectedIds] = useState<Set<string>>(new Set());
   const [openActionId, setOpenActionId] = useState<string | null>(null);
 
+  // Modal States
+  const [isBatchTimeModalOpen, setIsBatchTimeModalOpen] = useState(false);
+  const [isBatchInterviewerModalOpen, setIsBatchInterviewerModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editingSession, setEditingSession] = useState<InterviewSession | null>(null);
+
+  // Form States for Modals
+  const [batchDate, setBatchDate] = useState('');
+  const [batchDeadline, setBatchDeadline] = useState('');
+  const [batchTimeType, setBatchTimeType] = useState<'deadline' | 'scheduled'>('deadline');
+  const [batchInterviewer, setBatchInterviewer] = useState('直属上级');
+
+  const [editForm, setEditForm] = useState({
+      topic: '',
+      managerName: '',
+      date: '',
+      deadline: ''
+  });
+
   // Filter sessions specifically for this Assessment Cycle ("业绩考核5月")
-  // This ensures the list is empty initially until new interviews are created with this topic.
-  const contextSessions = sessions.filter(s => s.period === '业绩考核5月');
+  // In a real app, this would use taskName or an ID. For mock purposes, we loosely filter.
+  const contextSessions = sessions.filter(s => s.period.includes('考核') || s.assessmentCycle === taskName);
 
   // Statistics for the Interview Tab
   const stats = {
@@ -33,14 +65,6 @@ const AssessmentList: React.FC<AssessmentListProps> = ({ onInitiateInterview, se
       completed: contextSessions.filter(s => s.status === Status.Completed).length,
       inProgress: contextSessions.filter(s => s.status === Status.InProgress || s.status === Status.PendingConfirmation).length,
       notStarted: contextSessions.filter(s => s.status === Status.NotStarted).length,
-  };
-
-  // Calculate Rates for Chart
-  const totalSafe = stats.total || 1; // Avoid division by zero
-  const rates = {
-      completed: (stats.completed / totalSafe) * 100,
-      inProgress: (stats.inProgress / totalSafe) * 100,
-      notStarted: (stats.notStarted / totalSafe) * 100,
   };
 
   const steps = [
@@ -116,7 +140,55 @@ const AssessmentList: React.FC<AssessmentListProps> = ({ onInitiateInterview, se
       }
   };
 
-  // Helper to render Liquid Glass Grade Badge
+  // --- Batch Update Handlers ---
+  const submitBatchTime = () => {
+      const updates: Partial<InterviewSession> = {};
+      if (batchTimeType === 'deadline') {
+          updates.deadline = batchDeadline;
+          updates.schedulingStatus = 'pending';
+      } else {
+          updates.date = batchDate;
+          updates.schedulingStatus = 'scheduled';
+      }
+      onBatchUpdateSessions(Array.from(interviewSelectedIds), updates);
+      setIsBatchTimeModalOpen(false);
+      setInterviewSelectedIds(new Set());
+  };
+
+  const submitBatchInterviewer = () => {
+      onBatchUpdateSessions(Array.from(interviewSelectedIds), { managerName: batchInterviewer });
+      setIsBatchInterviewerModalOpen(false);
+      setInterviewSelectedIds(new Set());
+  };
+
+  // --- Single Edit Handlers ---
+  const handleEditSession = (session: InterviewSession) => {
+      setEditingSession(session);
+      setEditForm({
+          topic: session.period,
+          managerName: session.managerName,
+          date: session.date,
+          deadline: session.deadline || ''
+      });
+      setIsEditModalOpen(true);
+      setOpenActionId(null);
+  };
+
+  const submitEditSession = () => {
+      if (editingSession) {
+          onBatchUpdateSessions([editingSession.id], {
+              period: editForm.topic,
+              managerName: editForm.managerName,
+              date: editForm.date,
+              deadline: editForm.deadline,
+              schedulingStatus: editForm.date ? 'scheduled' : 'pending'
+          });
+          setIsEditModalOpen(false);
+          setEditingSession(null);
+      }
+  };
+
+  // Helper to render Liquid Grade Badge
   const renderLiquidGrade = (grade: string, employeeId: string) => {
       // Determine style based on grade
       let bgGradient = 'from-gray-100 to-gray-200';
@@ -425,33 +497,23 @@ const AssessmentList: React.FC<AssessmentListProps> = ({ onInitiateInterview, se
                                                     <div className="absolute right-0 top-full mt-1 w-32 bg-white rounded-lg shadow-xl border border-gray-100 z-50 py-1 text-sm text-gray-700 animate-in fade-in zoom-in-95 duration-100 origin-top-right">
                                                         {session.status === Status.NotStarted && (
                                                             <>
-                                                                <button className="w-full text-left px-4 py-2 hover:bg-gray-50 flex items-center transition-colors">
+                                                                <button 
+                                                                    onClick={() => handleEditSession(session)}
+                                                                    className="w-full text-left px-4 py-2 hover:bg-gray-50 flex items-center transition-colors"
+                                                                >
                                                                     <CalendarIcon size={14} className="mr-2 text-gray-400" /> 修改
                                                                 </button>
-                                                                <button className="w-full text-left px-4 py-2 hover:bg-gray-50 flex items-center transition-colors">
+                                                                <button 
+                                                                    onClick={() => onCancelSession(session.id)}
+                                                                    className="w-full text-left px-4 py-2 hover:bg-gray-50 flex items-center transition-colors text-red-600"
+                                                                >
                                                                     <Trash2 size={14} className="mr-2 text-red-400" /> 取消
                                                                 </button>
                                                             </>
                                                         )}
-                                                        {session.status === Status.InProgress && (
-                                                            <>
-                                                                <button className="w-full text-left px-4 py-2 hover:bg-gray-50 flex items-center transition-colors">
-                                                                    <Video size={14} className="mr-2 text-gray-400" /> 入会
-                                                                </button>
-                                                                <button className="w-full text-left px-4 py-2 hover:bg-gray-50 flex items-center transition-colors">
-                                                                    <FileText size={14} className="mr-2 text-gray-400" /> 记录
-                                                                </button>
-                                                            </>
-                                                        )}
-                                                        {session.status === Status.Completed && (
-                                                            <>
-                                                                <button className="w-full text-left px-4 py-2 hover:bg-gray-50 flex items-center transition-colors">
-                                                                    <Download size={14} className="mr-2 text-gray-400" /> 导出
-                                                                </button>
-                                                                <button className="w-full text-left px-4 py-2 hover:bg-gray-50 flex items-center transition-colors">
-                                                                    <Archive size={14} className="mr-2 text-gray-400" /> 归档
-                                                                </button>
-                                                            </>
+                                                        {/* Other status options... */}
+                                                        {session.status !== Status.NotStarted && (
+                                                            <div className="px-4 py-2 text-xs text-gray-400">无更多操作</div>
                                                         )}
                                                     </div>
                                                 </>
@@ -469,13 +531,21 @@ const AssessmentList: React.FC<AssessmentListProps> = ({ onInitiateInterview, se
   }
 
   return (
-    <div className="flex flex-col h-full bg-gray-50 overflow-hidden">
+    <div className="flex flex-col h-full bg-gray-50 overflow-hidden relative">
       {/* Header Info */}
       <div className="bg-white border-b border-gray-200 px-6 py-4">
-        <div className="flex items-center space-x-3 mb-4">
-           <h1 className="text-xl font-bold text-gray-800">业绩考核5月</h1>
-           <span className="px-2 py-0.5 bg-green-100 text-green-700 text-xs rounded border border-green-200">进行中</span>
-           <span className="px-2 py-0.5 bg-orange-100 text-orange-700 text-xs rounded border border-orange-200">需要关注问题[3项]</span>
+        <div className="flex items-center mb-4">
+           {onBack && (
+               <button 
+                   onClick={onBack}
+                   className="mr-3 p-1.5 hover:bg-gray-100 rounded-full text-gray-500 transition-colors"
+               >
+                   <ArrowLeft size={20} />
+               </button>
+           )}
+           <h1 className="text-xl font-bold text-gray-800">{taskName}</h1>
+           <span className="ml-3 px-2 py-0.5 bg-green-100 text-green-700 text-xs rounded border border-green-200">进行中</span>
+           <span className="ml-2 px-2 py-0.5 bg-orange-100 text-orange-700 text-xs rounded border border-orange-200">需要关注问题[3项]</span>
         </div>
 
         {/* Tab Navigation */}
@@ -534,9 +604,9 @@ const AssessmentList: React.FC<AssessmentListProps> = ({ onInitiateInterview, se
 
       {/* Interview Statistics - Only visible in Interview Tab when there is data */}
       {activeTab === 'interview' && contextSessions.length > 0 && (
-          <div className="bg-white px-6 py-4 border-b border-gray-200 mb-4 shadow-sm flex flex-col md:flex-row gap-6">
+          <div className="bg-white px-6 py-4 border-b border-gray-200 mb-4 shadow-sm">
               {/* Stats Cards Grid */}
-              <div className="flex-1 grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   <div className="bg-gray-50/50 border border-gray-100 rounded-xl p-3.5 flex items-center transition-all hover:bg-gray-50 hover:shadow-sm">
                       <div className="w-10 h-10 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center mr-3 shrink-0">
                           <Briefcase size={18} />
@@ -576,25 +646,6 @@ const AssessmentList: React.FC<AssessmentListProps> = ({ onInitiateInterview, se
                           <div className="text-xl font-bold text-gray-700">{stats.notStarted}</div>
                       </div>
                   </div>
-              </div>
-              
-              {/* Progress Chart Area */}
-              <div className="w-full md:w-64 border-t md:border-t-0 md:border-l border-gray-100 pt-4 md:pt-0 md:pl-6 flex flex-col justify-center">
-                 <div className="text-xs font-bold text-gray-500 mb-3 flex items-center">
-                     <PieChart size={14} className="mr-1.5 text-blue-500"/> 进度分布
-                 </div>
-                 {/* Stacked Bar */}
-                 <div className="h-4 w-full bg-gray-100 rounded-full overflow-hidden flex mb-3">
-                     <div className="bg-green-500 h-full transition-all duration-500" style={{ width: `${rates.completed}%` }} title={`已完成 ${Math.round(rates.completed)}%`}></div>
-                     <div className="bg-blue-500 h-full transition-all duration-500" style={{ width: `${rates.inProgress}%` }} title={`进行中 ${Math.round(rates.inProgress)}%`}></div>
-                     <div className="bg-gray-300 h-full transition-all duration-500" style={{ width: `${rates.notStarted}%` }} title={`未开始 ${Math.round(rates.notStarted)}%`}></div>
-                 </div>
-                 {/* Legend */}
-                 <div className="flex flex-wrap gap-x-3 gap-y-1 text-[10px] text-gray-500 font-medium">
-                     <div className="flex items-center"><div className="w-2 h-2 rounded-full bg-green-500 mr-1.5"></div>完成 {Math.round(rates.completed)}%</div>
-                     <div className="flex items-center"><div className="w-2 h-2 rounded-full bg-blue-500 mr-1.5"></div>进行 {Math.round(rates.inProgress)}%</div>
-                     <div className="flex items-center"><div className="w-2 h-2 rounded-full bg-gray-300 mr-1.5"></div>未开始 {Math.round(rates.notStarted)}%</div>
-                 </div>
               </div>
           </div>
       )}
@@ -638,19 +689,27 @@ const AssessmentList: React.FC<AssessmentListProps> = ({ onInitiateInterview, se
                  <div className="flex items-center space-x-2">
                     {/* Batch Remind Button */}
                     {interviewSelectedIds.size > 0 && (
-                        <button 
-                            onClick={handleBatchRemind}
-                            className="px-3 py-1.5 bg-white border border-orange-200 text-orange-600 text-sm rounded hover:bg-orange-50 flex items-center transition-all animate-in fade-in"
-                        >
-                            <Bell size={14} className="mr-1.5" /> 批量催办 ({interviewSelectedIds.size})
-                        </button>
+                        <>
+                            <button 
+                                onClick={handleBatchRemind}
+                                className="px-3 py-1.5 bg-white border border-orange-200 text-orange-600 text-sm rounded hover:bg-orange-50 flex items-center transition-all animate-in fade-in"
+                            >
+                                <Bell size={14} className="mr-1.5" /> 批量催办 ({interviewSelectedIds.size})
+                            </button>
+                            <button 
+                                onClick={() => setIsBatchTimeModalOpen(true)}
+                                className="px-3 py-1.5 bg-white border border-gray-300 text-gray-600 text-sm rounded hover:bg-gray-50 flex items-center"
+                            >
+                                <CalendarIcon size={14} className="mr-1.5" /> 批量修改时间
+                            </button>
+                            <button 
+                                onClick={() => setIsBatchInterviewerModalOpen(true)}
+                                className="px-3 py-1.5 bg-white border border-gray-300 text-gray-600 text-sm rounded hover:bg-gray-50 flex items-center"
+                            >
+                                <User size={14} className="mr-1.5" /> 批量更换面谈官
+                            </button>
+                        </>
                     )}
-                    <button className="px-3 py-1.5 bg-white border border-gray-300 text-gray-600 text-sm rounded hover:bg-gray-50 flex items-center">
-                        <CalendarIcon size={14} className="mr-1.5" /> 批量修改时间
-                    </button>
-                    <button className="px-3 py-1.5 bg-white border border-gray-300 text-gray-600 text-sm rounded hover:bg-gray-50 flex items-center">
-                        <User size={14} className="mr-1.5" /> 批量更换面谈官
-                    </button>
                 </div>
              </div>
           )}
@@ -677,6 +736,125 @@ const AssessmentList: React.FC<AssessmentListProps> = ({ onInitiateInterview, se
             </div>
           )}
       </div>
+
+      {/* --- Batch Time Modal --- */}
+      {isBatchTimeModalOpen && (
+          <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center backdrop-blur-sm">
+              <div className="bg-white rounded-lg shadow-xl p-6 w-[400px] animate-in zoom-in-95">
+                  <h3 className="text-lg font-bold text-gray-900 mb-4">批量修改面谈时间</h3>
+                  <div className="space-y-4 mb-6">
+                      <div className="flex space-x-4">
+                          <label className="flex items-center text-sm cursor-pointer">
+                              <input type="radio" checked={batchTimeType === 'deadline'} onChange={() => setBatchTimeType('deadline')} className="mr-2"/> 设置截止时间 (待排期)
+                          </label>
+                          <label className="flex items-center text-sm cursor-pointer">
+                              <input type="radio" checked={batchTimeType === 'scheduled'} onChange={() => setBatchTimeType('scheduled')} className="mr-2"/> 设置具体时间 (已排期)
+                          </label>
+                      </div>
+                      
+                      {batchTimeType === 'deadline' ? (
+                          <input 
+                            type="date" 
+                            className="w-full border border-gray-300 rounded p-2 text-sm"
+                            value={batchDeadline}
+                            onChange={(e) => setBatchDeadline(e.target.value)}
+                          />
+                      ) : (
+                          <input 
+                            type="datetime-local" 
+                            className="w-full border border-gray-300 rounded p-2 text-sm"
+                            value={batchDate}
+                            onChange={(e) => setBatchDate(e.target.value)}
+                          />
+                      )}
+                  </div>
+                  <div className="flex justify-end space-x-3">
+                      <button onClick={() => setIsBatchTimeModalOpen(false)} className="px-4 py-2 border rounded text-sm text-gray-600 hover:bg-gray-50">取消</button>
+                      <button onClick={submitBatchTime} className="px-4 py-2 bg-blue-600 text-white rounded text-sm hover:bg-blue-700">确认修改</button>
+                  </div>
+              </div>
+          </div>
+      )}
+
+      {/* --- Batch Interviewer Modal --- */}
+      {isBatchInterviewerModalOpen && (
+          <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center backdrop-blur-sm">
+              <div className="bg-white rounded-lg shadow-xl p-6 w-[400px] animate-in zoom-in-95">
+                  <h3 className="text-lg font-bold text-gray-900 mb-4">批量更换面谈官</h3>
+                  <div className="mb-6">
+                      <label className="block text-sm text-gray-700 mb-2">选择新的面谈官角色或人员</label>
+                      <select 
+                        className="w-full border border-gray-300 rounded p-2 text-sm"
+                        value={batchInterviewer}
+                        onChange={(e) => setBatchInterviewer(e.target.value)}
+                      >
+                          <option value="直属上级">直属上级 (默认)</option>
+                          <option value="HRBP">HRBP (张妮)</option>
+                          <option value="部门负责人">部门负责人 (王总)</option>
+                          <option value="隔级上级">隔级上级</option>
+                      </select>
+                  </div>
+                  <div className="flex justify-end space-x-3">
+                      <button onClick={() => setIsBatchInterviewerModalOpen(false)} className="px-4 py-2 border rounded text-sm text-gray-600 hover:bg-gray-50">取消</button>
+                      <button onClick={submitBatchInterviewer} className="px-4 py-2 bg-blue-600 text-white rounded text-sm hover:bg-blue-700">确认更换</button>
+                  </div>
+              </div>
+          </div>
+      )}
+
+      {/* --- Single Edit Modal --- */}
+      {isEditModalOpen && (
+          <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center backdrop-blur-sm">
+              <div className="bg-white rounded-lg shadow-xl p-6 w-[500px] animate-in zoom-in-95">
+                  <h3 className="text-lg font-bold text-gray-900 mb-4">修改面谈信息</h3>
+                  <div className="space-y-4 mb-6">
+                      <div>
+                          <label className="block text-sm text-gray-600 mb-1">面谈主题</label>
+                          <input 
+                            type="text" 
+                            className="w-full border border-gray-300 rounded p-2 text-sm"
+                            value={editForm.topic}
+                            onChange={(e) => setEditForm({...editForm, topic: e.target.value})}
+                          />
+                      </div>
+                      <div>
+                          <label className="block text-sm text-gray-600 mb-1">面谈官</label>
+                          <input 
+                            type="text" 
+                            className="w-full border border-gray-300 rounded p-2 text-sm"
+                            value={editForm.managerName}
+                            onChange={(e) => setEditForm({...editForm, managerName: e.target.value})}
+                          />
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                          <div>
+                              <label className="block text-sm text-gray-600 mb-1">截止时间</label>
+                              <input 
+                                type="date" 
+                                className="w-full border border-gray-300 rounded p-2 text-sm"
+                                value={editForm.deadline}
+                                onChange={(e) => setEditForm({...editForm, deadline: e.target.value})}
+                              />
+                          </div>
+                          <div>
+                              <label className="block text-sm text-gray-600 mb-1">具体时间 (选填)</label>
+                              <input 
+                                type="datetime-local" 
+                                className="w-full border border-gray-300 rounded p-2 text-sm"
+                                value={editForm.date}
+                                onChange={(e) => setEditForm({...editForm, date: e.target.value})}
+                              />
+                          </div>
+                      </div>
+                  </div>
+                  <div className="flex justify-end space-x-3">
+                      <button onClick={() => setIsEditModalOpen(false)} className="px-4 py-2 border rounded text-sm text-gray-600 hover:bg-gray-50">取消</button>
+                      <button onClick={submitEditSession} className="px-4 py-2 bg-blue-600 text-white rounded text-sm hover:bg-blue-700">保存修改</button>
+                  </div>
+              </div>
+          </div>
+      )}
+
     </div>
   );
 };

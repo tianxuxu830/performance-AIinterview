@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+
+import React, { useState, useEffect } from 'react';
 import { 
   X, Calendar, Clock, User, Plus, 
   Settings, ChevronDown, AlignLeft, 
@@ -6,8 +7,8 @@ import {
   ImageIcon, MoreHorizontal, Sparkles, RefreshCcw,
   Video
 } from 'lucide-react';
-import { MOCK_EMPLOYEES } from '../constants';
-import { InterviewSession } from '../types';
+import { MOCK_EMPLOYEES, MOCK_TEMPLATES } from '../constants';
+import { InterviewSession, InterviewType } from '../types';
 
 interface ScheduleMeetingModalProps {
   isOpen: boolean;
@@ -17,13 +18,41 @@ interface ScheduleMeetingModalProps {
 }
 
 const ScheduleMeetingModal: React.FC<ScheduleMeetingModalProps> = ({ isOpen, onClose, onConfirm, session }) => {
-  if (!isOpen) return null;
-  
+  const [topicType, setTopicType] = useState('绩效面谈');
   const [topic, setTopic] = useState('日常面谈');
+  const [selectedTemplateId, setSelectedTemplateId] = useState(MOCK_TEMPLATES[0].id);
+  
   const [method, setMethod] = useState('腾讯会议');
   const [date, setDate] = useState('2025-09-10');
   const [time, setTime] = useState('10:00');
   const [duration, setDuration] = useState('30 分钟');
+
+  useEffect(() => {
+    if (isOpen) {
+        if (session) {
+            // 1. Initialize Topic Text
+            setTopic(session.period || '');
+            
+            // 2. Initialize Topic Type (Left Dropdown)
+            if (session.type === InterviewType.Regular) setTopicType('绩效面谈');
+            else if (session.type === InterviewType.Probation) setTopicType('晋升访谈');
+            else if (session.type === InterviewType.Counseling) setTopicType('日常面谈');
+            else setTopicType('绩效面谈'); // Default
+
+            // 3. Initialize Template (Right Dropdown)
+            if (session.templateId) {
+                setSelectedTemplateId(session.templateId);
+            }
+        } else {
+            // Defaults for creating new without session
+            setTopic('日常面谈');
+            setTopicType('绩效面谈');
+            setSelectedTemplateId(MOCK_TEMPLATES[0].id);
+        }
+    }
+  }, [isOpen, session]);
+
+  if (!isOpen) return null;
 
   // Mock data
   const currentUser = { id: 'me', name: '我', avatar: 'https://picsum.photos/id/1005/50/50' };
@@ -54,12 +83,18 @@ const ScheduleMeetingModal: React.FC<ScheduleMeetingModalProps> = ({ isOpen, onC
                     </label>
                     <div className="flex gap-2">
                         <div className="relative flex-1">
-                             <select className="w-full appearance-none pl-9 pr-8 py-2.5 bg-white border border-transparent rounded-lg text-sm font-medium text-gray-700 shadow-sm focus:ring-2 focus:ring-purple-500 outline-none">
-                                <option>日常面谈</option>
-                                <option>绩效反馈</option>
-                                <option>晋升访谈</option>
+                             <select 
+                                disabled={!!session}
+                                value={topicType}
+                                onChange={(e) => setTopicType(e.target.value)}
+                                className={`w-full appearance-none pl-9 pr-8 py-2.5 border border-transparent rounded-lg text-sm font-medium shadow-sm focus:ring-2 focus:ring-purple-500 outline-none ${session ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : 'bg-white text-gray-700'}`}
+                             >
+                                <option value="绩效面谈">绩效面谈</option>
+                                <option value="日常面谈">日常面谈</option>
+                                <option value="绩效反馈">绩效反馈</option>
+                                <option value="晋升访谈">晋升访谈</option>
                              </select>
-                             <span className="absolute left-3 top-2.5 text-purple-500">
+                             <span className={`absolute left-3 top-2.5 ${session ? 'text-gray-400' : 'text-purple-500'}`}>
                                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M21 15C21 15.5304 20.7893 16.0391 20.4142 16.4142C20.0391 16.7893 19.5304 17 19 17H7L3 21V5C3 4.46957 3.21071 3.96086 3.58579 3.58579C3.96086 3.21071 4.46957 3 5 3H19C19.5304 3 20.0391 3.21071 20.4142 3.58579C20.7893 3.96086 21 4.46957 21 5V15Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
                              </span>
                              <ChevronDown className="absolute right-3 top-3 text-gray-400" size={16} />
@@ -67,8 +102,9 @@ const ScheduleMeetingModal: React.FC<ScheduleMeetingModalProps> = ({ isOpen, onC
                         <input 
                             type="text" 
                             value={topic} 
+                            disabled={!!session}
                             onChange={e => setTopic(e.target.value)}
-                            className="flex-[1.5] px-3 py-2.5 bg-white border border-transparent rounded-lg text-sm shadow-sm focus:ring-2 focus:ring-purple-500 outline-none"
+                            className={`flex-[1.5] px-3 py-2.5 border border-transparent rounded-lg text-sm shadow-sm focus:ring-2 focus:ring-purple-500 outline-none ${session ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : 'bg-white'}`}
                         />
                     </div>
                 </div>
@@ -137,10 +173,12 @@ const ScheduleMeetingModal: React.FC<ScheduleMeetingModalProps> = ({ isOpen, onC
                          <span className="mr-2"><User size={14} className="text-gray-400" /></span> 面谈对象
                     </label>
                     <div className="flex flex-wrap gap-2">
-                        <div className="flex items-center bg-white px-2 py-1.5 rounded-full shadow-sm pr-3">
+                        <div className={`flex items-center bg-white px-2 py-1.5 rounded-full shadow-sm ${session ? '' : 'pr-3'}`}>
                             <img src={targetUser.avatar} className="w-5 h-5 rounded-full mr-2" alt="" />
                             <span className="text-sm text-gray-700">{targetUser.name}</span>
-                            <button className="ml-2 text-gray-400 hover:text-gray-600"><X size={12}/></button>
+                            {!session && (
+                                <button className="ml-2 text-gray-400 hover:text-gray-600"><X size={12}/></button>
+                            )}
                         </div>
                          <button className="flex items-center text-gray-500 text-sm hover:text-purple-600 px-2">
                             <Plus size={16} className="mr-1" /> 添加
@@ -190,15 +228,23 @@ const ScheduleMeetingModal: React.FC<ScheduleMeetingModalProps> = ({ isOpen, onC
                 <div className="flex items-center justify-between mb-4 overflow-x-auto">
                     <div className="flex items-center space-x-2 whitespace-nowrap">
                         <div className="relative">
-                            <select className="appearance-none pl-3 pr-8 py-1.5 border border-gray-200 rounded text-sm text-gray-700 bg-white hover:border-gray-300 focus:outline-none focus:ring-2 focus:ring-purple-100">
-                                <option>日常面谈万能模版</option>
-                                <option>绩效考核模版</option>
+                            <select 
+                                disabled={!!session}
+                                value={selectedTemplateId}
+                                onChange={(e) => setSelectedTemplateId(e.target.value)}
+                                className={`appearance-none pl-3 pr-8 py-1.5 border border-gray-200 rounded text-sm text-gray-700 hover:border-gray-300 focus:outline-none focus:ring-2 focus:ring-purple-100 ${session ? 'bg-gray-50 text-gray-500 cursor-not-allowed' : 'bg-white'}`}
+                            >
+                                {MOCK_TEMPLATES.map(t => (
+                                    <option key={t.id} value={t.id}>{t.name}</option>
+                                ))}
                             </select>
                             <ChevronDown className="absolute right-2 top-2 text-gray-400 pointer-events-none" size={14} />
                         </div>
-                        <button className="px-3 py-1.5 bg-purple-50 text-purple-600 text-sm font-medium rounded hover:bg-purple-100">
-                            智能匹配
-                        </button>
+                        {!session && (
+                            <button className="px-3 py-1.5 bg-purple-50 text-purple-600 text-sm font-medium rounded hover:bg-purple-100">
+                                智能匹配
+                            </button>
+                        )}
                     </div>
                 </div>
 
