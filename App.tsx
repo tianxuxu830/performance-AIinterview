@@ -18,6 +18,7 @@ import SystemSettings from './components/SystemSettings';
 import PerformanceArchives from './components/PerformanceArchives';
 import MyTeamOrgPerformance from './components/MyTeamOrgPerformance';
 import MyTeamSubordinatePerformance from './components/MyTeamSubordinatePerformance';
+import InterviewConfirmationView from './components/InterviewConfirmationView'; // New
 import { InterviewSession, Status, InterviewType, Notification } from './types';
 import { MOCK_SESSIONS, MOCK_EMPLOYEES } from './constants';
 
@@ -52,7 +53,7 @@ function App() {
       setUserRole(role);
       if (role === 'HR') {
           setActivePage('assessments');
-          setSelectedAssessmentTask(null); // Reset to list view when switching to HR
+          setSelectedAssessmentTask(null);
       } else {
           setActivePage('dashboard');
       }
@@ -65,18 +66,13 @@ function App() {
   };
 
   const handleNotificationClick = (notification: Notification) => {
-      // 1. Mark as read
       handleMarkNotificationRead(notification.id);
-
-      // 2. Navigate based on target Role and Context
       if (notification.targetRole === 'Employee') {
           setUserRole('Employee');
-          // Navigate to "Employee Side - To Do - Performance Interview"
           setActivePage('todo_interviews');
           setViewMode('list');
       } else {
           setUserRole('HR');
-          // For Manager/HR notifications about Interviews, go to the Interview Management List
           if (notification.title.includes('面谈') || notification.content.includes('面谈')) {
               setActivePage('interviews');
           } else {
@@ -86,7 +82,6 @@ function App() {
       }
   };
 
-  // Handlers
   const handleInitiateInterviewFromAssessment = (employeeIds: string[]) => {
       setNewInterviewInitialEmployees(employeeIds);
       setNewInterviewDefaultTopic(selectedAssessmentTask || '绩效面谈'); 
@@ -107,7 +102,6 @@ function App() {
 
       const extractedPeriod = data.assessmentTask ? data.assessmentTask.split(' ')[0] + ' ' + data.assessmentTask.split(' ')[1] : '2025 Q4';
 
-      // 1. Create Sessions
       targetIds.forEach((empId: string) => {
           const emp = MOCK_EMPLOYEES.find(e => e.id === empId);
           if (emp) {
@@ -135,37 +129,20 @@ function App() {
 
       setSessions(prev => [...newSessions, ...prev]);
 
-      // 2. Create Notifications
       const newNotificationsList: Notification[] = [];
-      
-      // Notify Employees (Target) - Inform them about the process
       newNotificationsList.push({
           id: `notif_${Date.now()}_emp`,
           targetRole: 'Employee',
           type: 'task',
           title: '绩效面谈已启动',
-          content: `您的【${data.topic}】任务已下发。系统已通知面谈官 ${managerNameMap} 在截止日期 ${data.deadline} 前为您安排面谈时间并完成反馈，请留意后续待办通知。`,
+          content: `您的【${data.topic}】任务已下发。请关注面谈邀请。`,
           time: '刚刚',
           read: false
       });
-
-      // Notify Manager (Initiator) - Explicit instruction to schedule and feedback
-      newNotificationsList.push({
-          id: `notif_${Date.now()}_mgr`,
-          targetRole: 'HR', // Visible to HR/Manager
-          type: 'alert', // Use alert to highlight urgency
-          title: '面谈安排任务提醒',
-          content: `请注意：您需要在截止日期 ${data.deadline} 前，尽快为 ${targetIds.length} 位员工预约【${data.topic}】面谈时间，并完成面谈反馈填写。`,
-          time: '刚刚',
-          read: false
-      });
-
       setNotifications(prev => [...newNotificationsList, ...prev]);
-
-      alert(`已创建 ${newSessions.length} 个待排期面谈任务。已向相关员工及面谈官发送通知。`);
+      alert(`已创建 ${newSessions.length} 个待排期面谈任务。`);
   };
 
-  // Schedule Logic
   const handleOpenScheduleModal = (session: InterviewSession) => {
       setScheduleTargetSession(session);
       setScheduleModalOpen(true);
@@ -181,17 +158,8 @@ function App() {
               status: Status.NotStarted, 
               method: 'appointment' 
           };
-
-          const updatedSessions = sessions.map(s => 
-              s.id === scheduleTargetSession.id 
-              ? updatedSessionData
-              : s
-          );
-          setSessions(updatedSessions);
-          
+          setSessions(prev => prev.map(s => s.id === scheduleTargetSession.id ? updatedSessionData : s));
           setScheduleModalOpen(false);
-          setScheduleTargetSession(null);
-
           setSelectedSession(updatedSessionData);
           setViewMode('detail');
           if (userRole === 'HR') setActivePage('interviews');
@@ -202,17 +170,10 @@ function App() {
   const handleDirectFeedback = (session: InterviewSession) => {
       const updatedSessions = sessions.map(s => 
           s.id === session.id 
-          ? { 
-              ...s, 
-              status: Status.InProgress,
-              schedulingStatus: 'scheduled' as const, 
-              date: new Date().toISOString().split('T')[0], 
-              method: 'direct' as const 
-            } 
+          ? { ...s, status: Status.InProgress, schedulingStatus: 'scheduled' as const, date: new Date().toISOString().split('T')[0], method: 'direct' as const } 
           : s
       );
       setSessions(updatedSessions);
-      
       const updatedSession = updatedSessions.find(s => s.id === session.id);
       if (updatedSession) {
           setSelectedSession(updatedSession);
@@ -224,14 +185,21 @@ function App() {
 
   const handleSubmitFeedback = () => {
       if (selectedSession) {
-          const updatedSessions = sessions.map(s => 
-              s.id === selectedSession.id 
-              ? { ...s, status: Status.PendingConfirmation } 
-              : s
-          );
-          setSessions(updatedSessions);
-          
+          setSessions(prev => prev.map(s => 
+              s.id === selectedSession.id ? { ...s, status: Status.PendingConfirmation } : s
+          ));
           alert('已提交给员工确认！');
+          setSelectedSession(null);
+          setViewMode('list');
+      }
+  };
+
+  const handleConfirmCompletion = () => {
+      if (selectedSession) {
+          setSessions(prev => prev.map(s => 
+              s.id === selectedSession.id ? { ...s, status: Status.Completed } : s
+          ));
+          alert('已完成面谈结果确认！');
           setSelectedSession(null);
           setViewMode('list');
       }
@@ -267,10 +235,7 @@ function App() {
 
   const handleEndMeeting = () => {
       if (selectedSession) {
-          const updatedSessions = sessions.map(s => 
-             s.id === selectedSession.id ? { ...s, status: Status.Completed } : s
-          );
-          setSessions(updatedSessions);
+          setSessions(prev => prev.map(s => s.id === selectedSession.id ? { ...s, status: Status.Completed } : s));
           setSelectedSession(prev => prev ? ({ ...prev, status: Status.Completed }) : null);
       }
       setViewMode('detail'); 
@@ -286,9 +251,7 @@ function App() {
   };
 
   const handleBatchUpdateSessions = (ids: string[], updates: Partial<InterviewSession>) => {
-      setSessions(prev => prev.map(s => 
-          ids.includes(s.id) ? { ...s, ...updates } : s
-      ));
+      setSessions(prev => prev.map(s => ids.includes(s.id) ? { ...s, ...updates } : s));
   };
 
   const handleSingleCancelSession = (sessionId: string) => {
@@ -300,190 +263,62 @@ function App() {
   const renderContent = () => {
     if (activePage === 'dashboard') {
         if (userRole === 'Employee') {
-            return (
-                <EmployeeDashboard 
-                    sessions={sessions} 
-                    onEnterMeeting={(s) => {
-                        setSelectedSession(s);
-                        handleStartInterview(); 
-                    }}
-                    onFeedback={(s) => {
-                        handleDirectFeedback(s);
-                    }}
-                />
-            );
+            return <EmployeeDashboard sessions={sessions} onEnterMeeting={(s) => { setSelectedSession(s); handleStartInterview(); }} onFeedback={(s) => { handleDirectFeedback(s); }} />;
         }
-        return (
-            <div className="flex items-center justify-center h-full text-gray-400 bg-white">
-                <div className="text-center">
-                    <h2 className="text-xl font-semibold mb-2">欢迎进入 HR 管理后台</h2>
-                    <p className="text-sm">请从左侧菜单选择功能模块进行操作</p>
-                </div>
-            </div>
-        );
+        return <div className="flex items-center justify-center h-full text-gray-400 bg-white"><div className="text-center"><h2 className="text-xl font-semibold mb-2">欢迎进入 HR 管理后台</h2></div></div>;
     }
 
-    if (activePage === 'my_team_org') {
-        return <MyTeamOrgPerformance />;
-    }
-
-    if (activePage === 'my_team_sub') {
-        return <MyTeamSubordinatePerformance />;
-    }
-
-    if (activePage === 'settings') {
-        return <SystemSettings onNavigate={setActivePage} />;
-    }
-
-    if (activePage === 'template_config') {
-        return <TemplateConfigPage onBack={() => setActivePage('settings')} />;
-    }
-
+    if (activePage === 'my_team_org') return <MyTeamOrgPerformance />;
+    if (activePage === 'my_team_sub') return <MyTeamSubordinatePerformance />;
+    if (activePage === 'settings') return <SystemSettings onNavigate={setActivePage} />;
+    if (activePage === 'template_config') return <TemplateConfigPage onBack={() => setActivePage('settings')} />;
     if (activePage === 'assessments') {
         if (selectedAssessmentTask) {
-            return (
-                <AssessmentList 
-                    taskName={selectedAssessmentTask}
-                    onInitiateInterview={handleInitiateInterviewFromAssessment} 
-                    sessions={sessions}
-                    onScheduleSession={handleOpenScheduleModal}
-                    onSelectSession={handleSelectSession}
-                    onCancelSession={handleSingleCancelSession}
-                    onBatchUpdateSessions={handleBatchUpdateSessions}
-                    onBack={() => setSelectedAssessmentTask(null)}
-                />
-            );
+            return <AssessmentList taskName={selectedAssessmentTask} onInitiateInterview={handleInitiateInterviewFromAssessment} sessions={sessions} onScheduleSession={handleOpenScheduleModal} onSelectSession={handleSelectSession} onCancelSession={handleSingleCancelSession} onBatchUpdateSessions={handleBatchUpdateSessions} onBack={() => setSelectedAssessmentTask(null)} />;
         }
-        return (
-            <AssessmentTaskList 
-                onSelectTask={(taskName) => setSelectedAssessmentTask(taskName)} 
-            />
-        );
+        return <AssessmentTaskList onSelectTask={(taskName) => setSelectedAssessmentTask(taskName)} />;
     }
+    if (activePage === 'archives') return <PerformanceArchives />;
 
-    if (activePage === 'archives') {
-        return <PerformanceArchives />;
-    }
-
-    if (activePage === 'interviews') {
+    if (activePage === 'interviews' || activePage === 'todo_interviews') {
         if (viewMode === 'execution' && selectedSession) {
             return <InterviewExecution session={selectedSession} onEndMeeting={handleEndMeeting} />;
         }
         
         if (viewMode === 'detail' && selectedSession) {
-          return (
-             <InterviewForm 
-                session={selectedSession} 
-                onBack={handleBackToInterviewList} 
-                onStart={handleStartInterview}
-                onSubmitFeedback={handleSubmitFeedback}
-                onChangeSession={handleSelectSession} 
-             />
-          );
+          // ROUTING LOGIC: If employee confirms a pending session, show Confirmation View
+          if (userRole === 'Employee' && selectedSession.status === Status.PendingConfirmation) {
+            return <InterviewConfirmationView session={selectedSession} onBack={handleBackToInterviewList} onConfirm={handleConfirmCompletion} />;
+          }
+          return <InterviewForm session={selectedSession} onBack={handleBackToInterviewList} onStart={handleStartInterview} onSubmitFeedback={handleSubmitFeedback} onChangeSession={handleSelectSession} />;
         }
 
-        return (
-          <>
-            <InterviewList 
-                sessions={sessions}
-                onSelectSession={handleSelectSession} 
-                onCreateNew={() => {
-                    setNewInterviewInitialEmployees([]);
-                    setNewInterviewDefaultTopic('绩效面谈');
-                    setIsNewInterviewModalOpen(true);
-                }}
-                onOpenTemplates={() => setActivePage('template_config')}
-                onScheduleSession={handleOpenScheduleModal}
-                onDirectFeedback={handleDirectFeedback}
-                onCancelSession={handleCancelSession}
-            />
-          </>
-        );
-    }
-    
-    if (activePage === 'todo_plans' || activePage === 'todo_interviews' || activePage === 'todo_reviews') {
-        if (activePage === 'todo_interviews' && viewMode === 'detail' && selectedSession) {
-             return (
-                <InterviewForm 
-                    session={selectedSession} 
-                    onBack={handleBackToInterviewList} 
-                    onStart={handleStartInterview}
-                    onSubmitFeedback={handleSubmitFeedback}
-                    onChangeSession={handleSelectSession}
-                />
-             );
-        }
-        if (activePage === 'todo_interviews' && viewMode === 'execution' && selectedSession) {
-            return <InterviewExecution session={selectedSession} onEndMeeting={handleEndMeeting} />;
+        if (activePage === 'interviews') {
+            return <InterviewList sessions={sessions} onSelectSession={handleSelectSession} onCreateNew={() => { setNewInterviewInitialEmployees([]); setNewInterviewDefaultTopic('绩效面谈'); setIsNewInterviewModalOpen(true); }} onOpenTemplates={() => setActivePage('template_config')} onScheduleSession={handleOpenScheduleModal} onDirectFeedback={handleDirectFeedback} onCancelSession={handleCancelSession} />;
         }
 
         const type = activePage === 'todo_interviews' ? 'interviews' : activePage === 'todo_plans' ? 'plans' : 'reviews';
-        return (
-            <EmployeeTaskTable 
-                type={type as any} 
-                onAction={handleEmployeeTaskAction} 
-                sessions={type === 'interviews' ? sessions : undefined} 
-            />
-        );
+        return <EmployeeTaskTable type={type as any} onAction={handleEmployeeTaskAction} sessions={type === 'interviews' ? sessions : undefined} />;
     }
 
-    return (
-        <div className="flex items-center justify-center h-full text-gray-400 bg-white">
-          <div className="text-center">
-             <h2 className="text-xl font-semibold mb-2">欢迎使用智慧绩效 SmartPerf</h2>
-             <p className="text-sm">当前角色: {userRole === 'HR' ? 'HR 管理员' : '普通员工'}</p>
-             <p className="text-xs mt-2 opacity-50">请在左侧菜单选择功能</p>
-          </div>
-        </div>
-    );
+    if (activePage === 'todo_plans' || activePage === 'todo_reviews') {
+        return <EmployeeTaskTable type={activePage === 'todo_plans' ? 'plans' : 'reviews'} onAction={handleEmployeeTaskAction} />;
+    }
+
+    return <div className="flex items-center justify-center h-full text-gray-400 bg-white"><div className="text-center"><h2 className="text-xl font-semibold mb-2">欢迎使用智慧绩效 SmartPerf</h2></div></div>;
   };
 
   const isFullScreenMode = viewMode === 'execution' || viewMode === 'detail';
 
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-gray-50 text-gray-900 font-sans">
-      {!isFullScreenMode && (
-          <Sidebar 
-            activePage={activePage} 
-            setActivePage={(page) => {
-              setActivePage(page);
-              setViewMode('list');
-              if (page === 'assessments') setSelectedAssessmentTask(null);
-            }} 
-            currentRole={userRole}
-          />
-      )}
-      
+      {!isFullScreenMode && <Sidebar activePage={activePage} setActivePage={(page) => { setActivePage(page); setViewMode('list'); if (page === 'assessments') setSelectedAssessmentTask(null); }} currentRole={userRole} />}
       <div className="flex-1 flex flex-col min-w-0">
-        {!isFullScreenMode && (
-            <TopNav 
-                currentRole={userRole} 
-                onRoleChange={handleRoleChange} 
-                notifications={notifications}
-                onMarkRead={handleMarkNotificationRead}
-                onNotificationClick={handleNotificationClick}
-            />
-        )}
-        
-        <main className="flex-1 overflow-auto relative flex flex-col bg-[#F9FAFB]">
-          {renderContent()}
-        </main>
+        {!isFullScreenMode && <TopNav currentRole={userRole} onRoleChange={handleRoleChange} notifications={notifications} onMarkRead={handleMarkNotificationRead} onNotificationClick={handleNotificationClick} />}
+        <main className="flex-1 overflow-auto relative flex flex-col bg-[#F9FAFB]">{renderContent()}</main>
       </div>
-
-      <NewInterviewModal 
-        isOpen={isNewInterviewModalOpen}
-        onClose={() => setIsNewInterviewModalOpen(false)}
-        onSubmit={handleNewInterviewSubmit}
-        initialEmployeeIds={newInterviewInitialEmployees}
-        defaultTopic={newInterviewDefaultTopic}
-      />
-
-      <ScheduleMeetingModal
-        isOpen={isScheduleModalOpen}
-        onClose={() => setScheduleModalOpen(false)}
-        onConfirm={handleConfirmSchedule}
-        session={scheduleTargetSession}
-      />
+      <NewInterviewModal isOpen={isNewInterviewModalOpen} onClose={() => setIsNewInterviewModalOpen(false)} onSubmit={handleNewInterviewSubmit} initialEmployeeIds={newInterviewInitialEmployees} defaultTopic={newInterviewDefaultTopic} />
+      <ScheduleMeetingModal isOpen={isScheduleModalOpen} onClose={() => setScheduleModalOpen(false)} onConfirm={handleConfirmSchedule} session={scheduleTargetSession} />
     </div>
   );
 }

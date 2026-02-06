@@ -100,9 +100,10 @@ const InterviewForm: React.FC<InterviewFormProps> = ({ session, onBack, onStart,
   
   // Share Confirmation Modal State
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+  // Initialize config based on direct mode
   const [shareConfig, setShareConfig] = useState({
       items: {
-          summary: true,
+          summary: !isDirect,
           form: true,
           info: false, // Changed default to false
           ref: false,  // Changed default to false
@@ -110,6 +111,20 @@ const InterviewForm: React.FC<InterviewFormProps> = ({ session, onBack, onStart,
       },
       formPermission: 'read' as 'read' | 'edit'
   });
+
+  // Reset config when session changes
+  useEffect(() => {
+      setShareConfig(prev => ({
+          ...prev,
+          items: {
+              ...prev.items,
+              summary: !isDirect,
+              replay: false, // Reset optional fields
+              info: false,
+              ref: false
+          }
+      }));
+  }, [session.id, isDirect]);
 
   // Scroll Anchors Refs
   const overviewRef = useRef<HTMLDivElement>(null);
@@ -371,6 +386,7 @@ const InterviewForm: React.FC<InterviewFormProps> = ({ session, onBack, onStart,
   };
 
   const renderConflictModal = () => {
+      // ... (No changes needed here)
       if (!conflictModalOpen) return null;
 
       const { roles, summary, projects } = MOCK_CONFLICT_DETAILS_ENHANCED;
@@ -393,7 +409,7 @@ const InterviewForm: React.FC<InterviewFormProps> = ({ session, onBack, onStart,
                   </div>
 
                   <div className="flex-1 overflow-y-auto p-6 bg-white custom-scrollbar">
-                      {/* 1. Summary Comparison Matrix */}
+                      {/* ... (Existing conflict modal content) ... */}
                       <div className="mb-8">
                           <h4 className="text-sm font-bold text-gray-800 mb-3 flex items-center">
                               <BarChart2 size={16} className="mr-2 text-blue-600" /> 总评概览
@@ -1068,21 +1084,23 @@ const InterviewForm: React.FC<InterviewFormProps> = ({ session, onBack, onStart,
                       <div className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4 px-1">配置员工可见范围</div>
                       
                       <div className="space-y-3">
-                          {/* 1. Smart Summary */}
-                          <div className={`group flex flex-col bg-white border rounded-xl transition-all ${shareConfig.items.summary ? 'border-purple-200 shadow-sm ring-1 ring-purple-50' : 'border-gray-200 hover:border-gray-300'}`}>
-                              <div className="flex items-center p-4 cursor-pointer" onClick={() => toggleShareItem('summary')}>
-                                  <div className={`w-10 h-10 rounded-full flex items-center justify-center mr-4 shrink-0 transition-colors ${shareConfig.items.summary ? 'bg-purple-100 text-purple-600' : 'bg-gray-100 text-gray-400'}`}>
-                                      <Sparkles size={20} />
-                                  </div>
-                                  <div className="flex-1">
-                                      <div className={`font-bold text-sm ${shareConfig.items.summary ? 'text-gray-900' : 'text-gray-500'}`}>智能纪要</div>
-                                      <div className="text-xs text-gray-400 mt-0.5">AI 生成的面谈总结与行动计划</div>
-                                  </div>
-                                  <div className={`w-5 h-5 rounded-full border flex items-center justify-center transition-colors ${shareConfig.items.summary ? 'bg-purple-600 border-purple-600' : 'border-gray-300 bg-white'}`}>
-                                      {shareConfig.items.summary && <Check size={12} className="text-white" />}
-                                  </div>
-                              </div>
-                          </div>
+                          {/* 1. Smart Summary - Hide if Direct */}
+                          {!isDirect && (
+                            <div className={`group flex flex-col bg-white border rounded-xl transition-all ${shareConfig.items.summary ? 'border-purple-200 shadow-sm ring-1 ring-purple-50' : 'border-gray-200 hover:border-gray-300'}`}>
+                                <div className="flex items-center p-4 cursor-pointer" onClick={() => toggleShareItem('summary')}>
+                                    <div className={`w-10 h-10 rounded-full flex items-center justify-center mr-4 shrink-0 transition-colors ${shareConfig.items.summary ? 'bg-purple-100 text-purple-600' : 'bg-gray-100 text-gray-400'}`}>
+                                        <Sparkles size={20} />
+                                    </div>
+                                    <div className="flex-1">
+                                        <div className={`font-bold text-sm ${shareConfig.items.summary ? 'text-gray-900' : 'text-gray-500'}`}>智能纪要</div>
+                                        <div className="text-xs text-gray-400 mt-0.5">AI 生成的面谈总结与行动计划</div>
+                                    </div>
+                                    <div className={`w-5 h-5 rounded-full border flex items-center justify-center transition-colors ${shareConfig.items.summary ? 'bg-purple-600 border-purple-600' : 'border-gray-300 bg-white'}`}>
+                                        {shareConfig.items.summary && <Check size={12} className="text-white" />}
+                                    </div>
+                                </div>
+                            </div>
+                          )}
 
                           {/* 2. Feedback Form (With Permissions) */}
                           <div className={`group flex flex-col bg-white border rounded-xl transition-all ${shareConfig.items.form ? 'border-blue-200 shadow-sm ring-1 ring-blue-50' : 'border-gray-200 hover:border-gray-300'}`}>
@@ -1123,53 +1141,55 @@ const InterviewForm: React.FC<InterviewFormProps> = ({ session, onBack, onStart,
                               )}
                           </div>
 
-                          {/* 3. Secondary Items Grid */}
-                          <div className="grid grid-cols-1 gap-3">
-                              {/* Basic Info */}
-                              <div 
-                                  className={`flex items-center p-3 bg-white border rounded-lg cursor-pointer transition-all ${shareConfig.items.info ? 'border-gray-400 bg-gray-50' : 'border-gray-200 hover:border-gray-300'}`}
-                                  onClick={() => toggleShareItem('info')}
-                              >
-                                  <div className={`w-8 h-8 rounded-full flex items-center justify-center mr-3 shrink-0 ${shareConfig.items.info ? 'bg-gray-200 text-gray-700' : 'bg-gray-100 text-gray-400'}`}>
-                                      <Info size={16} />
-                                  </div>
-                                  <span className={`text-sm font-medium flex-1 ${shareConfig.items.info ? 'text-gray-900' : 'text-gray-500'}`}>基本信息</span>
-                                  <div className={`w-4 h-4 rounded border flex items-center justify-center ${shareConfig.items.info ? 'bg-gray-600 border-gray-600' : 'border-gray-300 bg-white'}`}>
-                                      {shareConfig.items.info && <Check size={10} className="text-white" />}
-                                  </div>
-                              </div>
+                          {/* 3. Secondary Items Grid - Hide if Direct */}
+                          {!isDirect && (
+                            <div className="grid grid-cols-1 gap-3">
+                                {/* Basic Info */}
+                                <div 
+                                    className={`flex items-center p-3 bg-white border rounded-lg cursor-pointer transition-all ${shareConfig.items.info ? 'border-gray-400 bg-gray-50' : 'border-gray-200 hover:border-gray-300'}`}
+                                    onClick={() => toggleShareItem('info')}
+                                >
+                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center mr-3 shrink-0 ${shareConfig.items.info ? 'bg-gray-200 text-gray-700' : 'bg-gray-100 text-gray-400'}`}>
+                                        <Info size={16} />
+                                    </div>
+                                    <span className={`text-sm font-medium flex-1 ${shareConfig.items.info ? 'text-gray-900' : 'text-gray-500'}`}>基本信息</span>
+                                    <div className={`w-4 h-4 rounded border flex items-center justify-center ${shareConfig.items.info ? 'bg-gray-600 border-gray-600' : 'border-gray-300 bg-white'}`}>
+                                        {shareConfig.items.info && <Check size={10} className="text-white" />}
+                                    </div>
+                                </div>
 
-                              {/* Reference */}
-                              <div 
-                                  className={`flex items-center p-3 bg-white border rounded-lg cursor-pointer transition-all ${shareConfig.items.ref ? 'border-gray-400 bg-gray-50' : 'border-gray-200 hover:border-gray-300'}`}
-                                  onClick={() => toggleShareItem('ref')}
-                              >
-                                  <div className={`w-8 h-8 rounded-full flex items-center justify-center mr-3 shrink-0 ${shareConfig.items.ref ? 'bg-gray-200 text-gray-700' : 'bg-gray-100 text-gray-400'}`}>
-                                      <BookOpen size={16} />
-                                  </div>
-                                  <span className={`text-sm font-medium flex-1 ${shareConfig.items.ref ? 'text-gray-900' : 'text-gray-500'}`}>参考资料</span>
-                                  <div className={`w-4 h-4 rounded border flex items-center justify-center ${shareConfig.items.ref ? 'bg-gray-600 border-gray-600' : 'border-gray-300 bg-white'}`}>
-                                      {shareConfig.items.ref && <Check size={10} className="text-white" />}
-                                  </div>
-                              </div>
+                                {/* Reference */}
+                                <div 
+                                    className={`flex items-center p-3 bg-white border rounded-lg cursor-pointer transition-all ${shareConfig.items.ref ? 'border-gray-400 bg-gray-50' : 'border-gray-200 hover:border-gray-300'}`}
+                                    onClick={() => toggleShareItem('ref')}
+                                >
+                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center mr-3 shrink-0 ${shareConfig.items.ref ? 'bg-gray-200 text-gray-700' : 'bg-gray-100 text-gray-400'}`}>
+                                        <BookOpen size={16} />
+                                    </div>
+                                    <span className={`text-sm font-medium flex-1 ${shareConfig.items.ref ? 'text-gray-900' : 'text-gray-500'}`}>参考资料</span>
+                                    <div className={`w-4 h-4 rounded border flex items-center justify-center ${shareConfig.items.ref ? 'bg-gray-600 border-gray-600' : 'border-gray-300 bg-white'}`}>
+                                        {shareConfig.items.ref && <Check size={10} className="text-white" />}
+                                    </div>
+                                </div>
 
-                              {/* Replay */}
-                              <div 
-                                  className={`flex items-center p-3 bg-white border rounded-lg cursor-pointer transition-all ${shareConfig.items.replay ? 'border-orange-300 bg-orange-50' : 'border-dashed border-gray-300 hover:border-gray-400'}`}
-                                  onClick={() => toggleShareItem('replay')}
-                              >
-                                  <div className={`w-8 h-8 rounded-full flex items-center justify-center mr-3 shrink-0 ${shareConfig.items.replay ? 'bg-orange-100 text-orange-600' : 'bg-gray-100 text-gray-400'}`}>
-                                      <Video size={16} />
-                                  </div>
-                                  <div className="flex-1">
-                                      <span className={`text-sm font-medium ${shareConfig.items.replay ? 'text-gray-900' : 'text-gray-500'}`}>回放/原文</span>
-                                      <span className="text-[10px] text-orange-500 ml-2 bg-orange-50 px-1.5 py-0.5 rounded border border-orange-100">敏感信息</span>
-                                  </div>
-                                  <div className={`w-4 h-4 rounded border flex items-center justify-center ${shareConfig.items.replay ? 'bg-orange-500 border-orange-500' : 'border-gray-300 bg-white'}`}>
-                                      {shareConfig.items.replay && <Check size={10} className="text-white" />}
-                                  </div>
-                              </div>
-                          </div>
+                                {/* Replay */}
+                                <div 
+                                    className={`flex items-center p-3 bg-white border rounded-lg cursor-pointer transition-all ${shareConfig.items.replay ? 'border-orange-300 bg-orange-50' : 'border-dashed border-gray-300 hover:border-gray-400'}`}
+                                    onClick={() => toggleShareItem('replay')}
+                                >
+                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center mr-3 shrink-0 ${shareConfig.items.replay ? 'bg-orange-100 text-orange-600' : 'bg-gray-100 text-gray-400'}`}>
+                                        <Video size={16} />
+                                    </div>
+                                    <div className="flex-1">
+                                        <span className={`text-sm font-medium ${shareConfig.items.replay ? 'text-gray-900' : 'text-gray-500'}`}>回放/原文</span>
+                                        <span className="text-[10px] text-orange-500 ml-2 bg-orange-50 px-1.5 py-0.5 rounded border border-orange-100">敏感信息</span>
+                                    </div>
+                                    <div className={`w-4 h-4 rounded border flex items-center justify-center ${shareConfig.items.replay ? 'bg-orange-500 border-orange-500' : 'border-gray-300 bg-white'}`}>
+                                        {shareConfig.items.replay && <Check size={10} className="text-white" />}
+                                    </div>
+                                </div>
+                            </div>
+                          )}
                       </div>
                   </div>
                   

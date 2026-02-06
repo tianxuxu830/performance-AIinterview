@@ -1,4 +1,5 @@
 
+
 export enum Status {
   NotStarted = '未开始',
   InProgress = '进行中',
@@ -16,6 +17,17 @@ export enum InterviewType {
 
 export type SchedulingStatus = 'scheduled' | 'pending';
 
+export interface ShareConfig {
+  items: {
+      summary: boolean;
+      form: boolean;
+      info: boolean;
+      ref: boolean;
+      replay: boolean;
+  };
+  formPermission: 'read' | 'edit';
+}
+
 export interface Employee {
   id: string;
   name: string;
@@ -32,15 +44,15 @@ export interface TemplateField {
   type: FieldType;
   required: boolean;
   placeholder?: string;
-  width?: 'full' | 'half' | 'one-third'; // Layout support for Form view
+  width?: 'full' | 'half' | 'one-third';
 }
 
 export interface TemplateSection {
   id: string;
   title: string;
   description?: string;
-  viewType: 'form' | 'table'; // Support different views
-  columns?: 1 | 2 | 3; // Grid columns for Form view
+  viewType: 'form' | 'table';
+  columns?: 1 | 2 | 3;
   fields: TemplateField[];
 }
 
@@ -52,31 +64,6 @@ export interface InterviewTemplate {
   status?: 'active' | 'disabled';
 }
 
-export interface PerformanceRecord {
-  id: string;
-  employeeId: string;
-  period: string;
-  overallScore: number;
-  grade: string;
-  status: Status;
-  kpiScore: number;
-  okrScore: number;
-}
-
-export interface PerformanceTrend {
-  period: string;
-  score: number;
-  grade: string;
-}
-
-export interface HistoricalRecord {
-  id: string;
-  date: string;
-  type: string;
-  manager: string;
-  summary: string;
-}
-
 export interface InterviewSession {
   id: string;
   employeeId: string;
@@ -86,19 +73,19 @@ export interface InterviewSession {
   period: string;
   status: Status;
   type: InterviewType;
-  method: 'direct' | 'appointment'; // New field: Direct Feedback or Scheduled Appointment
+  method: 'direct' | 'appointment';
   templateId: string;
   linkedAssessmentId?: string;
-  assessmentCycle?: string; // New field: Associated Assessment Cycle (e.g., '2025 Q4')
+  assessmentCycle?: string;
   content?: Record<string, any>; 
   schedulingStatus?: SchedulingStatus;
   deadline?: string;
   gradeTag?: string; 
   department?: string; 
   riskTag?: 'high_risk' | 'controversial' | 'normal';
-  // New configuration fields
   requireConfirmation?: boolean;
   signatureType?: 'confirmation' | 'handwritten' | 'electronic'; 
+  shareConfig?: ShareConfig; // New: visibility and permission settings
 }
 
 export interface AssessmentItem {
@@ -117,7 +104,6 @@ export interface AssessmentItem {
   grade: string;
 }
 
-// New Types for Workbench Dimensions
 export interface DimensionItem {
   id: string;
   name: string;
@@ -125,6 +111,19 @@ export interface DimensionItem {
   managerScore: number;
   weight: number;
   description?: string;
+}
+
+export interface AssessmentDetail {
+  id: string; 
+  description: string;
+  highlights: DimensionItem[];
+  improvements: DimensionItem[];
+  controversies: DimensionItem[];
+  attachments: AssessmentAttachment[];
+  okrWeight?: number;
+  kpiWeight?: number;
+  okrs?: OKRItem[];
+  kpis?: KPIItem[];
 }
 
 export interface AssessmentAttachment {
@@ -135,17 +134,12 @@ export interface AssessmentAttachment {
   size: string;
 }
 
-// New Types for Detail Table
-export interface KeyResult {
-  content: string;
-}
-
 export interface OKRItem {
   id: string;
   sequence: number;
   name: string;
   weight: number;
-  krs: KeyResult[];
+  krs: { content: string }[];
 }
 
 export interface KPIItem {
@@ -158,21 +152,6 @@ export interface KPIItem {
   targetValue: string;
 }
 
-export interface AssessmentDetail {
-  id: string; 
-  description: string;
-  // Categorized items for dashboard
-  highlights: DimensionItem[];
-  improvements: DimensionItem[];
-  controversies: DimensionItem[]; // Diff > 20%
-  attachments: AssessmentAttachment[];
-  // Detail Table Data
-  okrWeight?: number;
-  kpiWeight?: number;
-  okrs?: OKRItem[];
-  kpis?: KPIItem[];
-}
-
 export interface Notification {
   id: string;
   targetRole: 'HR' | 'Employee';
@@ -181,4 +160,38 @@ export interface Notification {
   content: string;
   time: string;
   read: boolean;
+}
+
+/**
+ * Fix: Added PerformanceRecord interface used in constants.ts
+ */
+export interface PerformanceRecord {
+  id: string;
+  employeeId: string;
+  period: string;
+  overallScore: number;
+  grade: string;
+  status: Status;
+  kpiScore: number;
+  okrScore: number;
+}
+
+/**
+ * Fix: Added PerformanceTrend interface used in constants.ts
+ */
+export interface PerformanceTrend {
+  period: string;
+  score: number;
+  grade: string;
+}
+
+/**
+ * Fix: Added HistoricalRecord interface used in constants.ts and various components
+ */
+export interface HistoricalRecord {
+  id: string;
+  date: string;
+  type: string;
+  manager: string;
+  summary: string;
 }
