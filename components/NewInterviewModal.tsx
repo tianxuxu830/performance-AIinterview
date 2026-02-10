@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Calendar, User, ChevronRight, Users, Clock, FileText, Grip, Layers, Settings, PenLine, FileSignature, CheckCircle2, AlertCircle } from 'lucide-react';
+import { X, Calendar, User, ChevronRight, Users, Clock, FileText, Grip, Layers, Settings, PenLine, FileSignature, CheckCircle2, AlertCircle, HelpCircle } from 'lucide-react';
 import { MOCK_EMPLOYEES, MOCK_TEMPLATES } from '../constants';
 import EmployeeSelectorModal from './EmployeeSelectorModal';
 
@@ -150,29 +150,50 @@ const NewInterviewModal: React.FC<NewInterviewModalProps> = ({
           <div className="flex-1 p-8 overflow-y-auto custom-scrollbar">
               <div className="space-y-6 max-w-3xl mx-auto">
                 
-                  {/* 1. Source Type */}
+                  {/* 1. Source Type (Interview Context) */}
                   <div className="grid grid-cols-4 items-center gap-4">
                       <label className="text-sm font-medium text-gray-700 text-right">
-                          <span className="text-red-500 mr-1">*</span>面谈来源类型
+                          <span className="text-red-500 mr-1">*</span>面谈背景
                       </label>
                       <div className="col-span-3 flex items-center space-x-6">
-                          <label className="flex items-center cursor-pointer">
+                          <label className="flex items-center cursor-pointer group relative">
                               <input 
                                 type="radio" 
                                 className="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500"
                                 checked={sourceType === 'assessment'}
                                 onChange={() => setSourceType('assessment')}
                               />
-                              <span className="ml-2 text-sm text-gray-700">考核</span>
+                              <span className="ml-2 text-sm text-gray-700 flex items-center">
+                                  关联考核任务
+                                  <div className="ml-1 text-gray-400 hover:text-blue-500 transition-colors cursor-help">
+                                      <HelpCircle size={14} />
+                                  </div>
+                              </span>
+                              {/* Tooltip */}
+                              <div className="absolute top-full left-0 mt-2 w-64 p-3 bg-gray-800 text-white text-xs rounded-lg shadow-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 leading-relaxed font-normal">
+                                  <div className="absolute -top-1 left-6 w-2 h-2 bg-gray-800 transform rotate-45"></div>
+                                  针对已有考核计划发起。系统将自动调取考评数据，面谈记录将归档至对应考核任务中。
+                              </div>
                           </label>
-                          <label className="flex items-center cursor-pointer">
+
+                          <label className="flex items-center cursor-pointer group relative">
                               <input 
                                 type="radio" 
                                 className="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500"
                                 checked={sourceType === 'independent'}
                                 onChange={() => setSourceType('independent')}
                               />
-                              <span className="ml-2 text-sm text-gray-700">独立</span>
+                              <span className="ml-2 text-sm text-gray-700 flex items-center">
+                                  专项/日常面谈
+                                  <div className="ml-1 text-gray-400 hover:text-blue-500 transition-colors cursor-help">
+                                      <HelpCircle size={14} />
+                                  </div>
+                              </span>
+                              {/* Tooltip */}
+                              <div className="absolute top-full left-0 mt-2 w-64 p-3 bg-gray-800 text-white text-xs rounded-lg shadow-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 leading-relaxed font-normal">
+                                  <div className="absolute -top-1 left-6 w-2 h-2 bg-gray-800 transform rotate-45"></div>
+                                  针对特定事件发起的单次沟通。适用于绩效预警、日常反馈等独立场景。
+                              </div>
                           </label>
                       </div>
                   </div>
