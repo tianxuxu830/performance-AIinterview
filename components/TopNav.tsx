@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { Search, Bell, HelpCircle, Grid, Mail, RefreshCw, X, Check } from 'lucide-react';
+import { Search, Bell, HelpCircle, Grid, Mail, RefreshCw, X, Check, Smartphone } from 'lucide-react';
 import { Notification } from '../types';
 
 interface TopNavProps {
@@ -9,9 +9,10 @@ interface TopNavProps {
   notifications?: Notification[];
   onMarkRead?: (id: string) => void;
   onNotificationClick?: (notification: Notification) => void;
+  onMobileClick?: () => void;
 }
 
-const TopNav: React.FC<TopNavProps> = ({ currentRole, onRoleChange, notifications = [], onMarkRead, onNotificationClick }) => {
+const TopNav: React.FC<TopNavProps> = ({ currentRole, onRoleChange, notifications = [], onMarkRead, onNotificationClick, onMobileClick }) => {
   const [showNotifications, setShowNotifications] = useState(false);
 
   // Filter notifications for current role
@@ -52,6 +53,14 @@ const TopNav: React.FC<TopNavProps> = ({ currentRole, onRoleChange, notification
                     }`}
                 >
                     <span className="mr-1">👔</span> HR端
+                </button>
+                {/* Mobile Entry Point */}
+                <button
+                    onClick={onMobileClick}
+                    className="px-3 py-1 text-xs rounded-md transition-all flex items-center text-gray-500 hover:text-gray-800 hover:bg-white/60 ml-1"
+                    title="移动端模拟"
+                >
+                    <Smartphone size={14} className="mr-1" /> 移动端
                 </button>
             </div>
 

@@ -18,13 +18,15 @@ import SystemSettings from './components/SystemSettings';
 import PerformanceArchives from './components/PerformanceArchives';
 import MyTeamOrgPerformance from './components/MyTeamOrgPerformance';
 import MyTeamSubordinatePerformance from './components/MyTeamSubordinatePerformance';
-import InterviewConfirmationView from './components/InterviewConfirmationView'; // New
+import InterviewConfirmationView from './components/InterviewConfirmationView';
+import MobileApp from './components/MobileApp'; // Import MobileApp
 import { InterviewSession, Status, InterviewType, Notification } from './types';
 import { MOCK_SESSIONS, MOCK_EMPLOYEES } from './constants';
 
 function App() {
   const [userRole, setUserRole] = useState<'HR' | 'Employee'>('Employee'); 
   const [activePage, setActivePage] = useState('dashboard'); 
+  const [isMobileMode, setIsMobileMode] = useState(false); // Mobile Mode State
   
   // Assessment Navigation State
   const [selectedAssessmentTask, setSelectedAssessmentTask] = useState<string | null>(null);
@@ -314,11 +316,22 @@ function App() {
     <div className="flex h-screen w-screen overflow-hidden bg-gray-50 text-gray-900 font-sans">
       {!isFullScreenMode && <Sidebar activePage={activePage} setActivePage={(page) => { setActivePage(page); setViewMode('list'); if (page === 'assessments') setSelectedAssessmentTask(null); }} currentRole={userRole} />}
       <div className="flex-1 flex flex-col min-w-0">
-        {!isFullScreenMode && <TopNav currentRole={userRole} onRoleChange={handleRoleChange} notifications={notifications} onMarkRead={handleMarkNotificationRead} onNotificationClick={handleNotificationClick} />}
+        {!isFullScreenMode && (
+            <TopNav 
+                currentRole={userRole} 
+                onRoleChange={handleRoleChange} 
+                notifications={notifications} 
+                onMarkRead={handleMarkNotificationRead} 
+                onNotificationClick={handleNotificationClick}
+                onMobileClick={() => setIsMobileMode(true)} 
+            />
+        )}
         <main className="flex-1 overflow-auto relative flex flex-col bg-[#F9FAFB]">{renderContent()}</main>
       </div>
       <NewInterviewModal isOpen={isNewInterviewModalOpen} onClose={() => setIsNewInterviewModalOpen(false)} onSubmit={handleNewInterviewSubmit} initialEmployeeIds={newInterviewInitialEmployees} defaultTopic={newInterviewDefaultTopic} />
       <ScheduleMeetingModal isOpen={isScheduleModalOpen} onClose={() => setScheduleModalOpen(false)} onConfirm={handleConfirmSchedule} session={scheduleTargetSession} />
+      {/* Mobile Simulation Overlay */}
+      {isMobileMode && <MobileApp sessions={sessions} onClose={() => setIsMobileMode(false)} />}
     </div>
   );
 }
