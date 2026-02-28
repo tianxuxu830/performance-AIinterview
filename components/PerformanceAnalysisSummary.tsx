@@ -37,7 +37,7 @@ const PerformanceAnalysisSummary: React.FC<PerformanceAnalysisSummaryProps> = ({
             <h4 className="text-sm font-bold text-gray-900 mb-4 flex items-center">
                 <TargetIcon size={16} className="mr-2 text-blue-500" /> 绩效摘要
             </h4>
-            <div className="grid grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div className="bg-blue-50/30 rounded-xl p-3 text-center border border-blue-50">
                     <div className="text-[10px] text-blue-600 font-medium mb-1">绩效总分</div>
                     <div className="text-xl font-bold text-gray-900">{assessmentDetail.performanceScore || '-'}</div>
@@ -340,7 +340,7 @@ const PerformanceAnalysisSummary: React.FC<PerformanceAnalysisSummaryProps> = ({
             <h4 className="text-sm font-bold text-gray-900 mb-5 flex items-center">
                 <ThumbsUp size={16} className="mr-2 text-orange-500" /> 行动与发展建议
             </h4>
-            <div className="grid grid-cols-2 gap-5">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                 <div className="bg-gradient-to-br from-emerald-50/50 to-white p-5 rounded-2xl border border-emerald-100/50 shadow-sm">
                     <h5 className="text-xs font-bold text-emerald-900 mb-4 flex items-center">
                         <CheckCircle2 size={14} className="mr-2 text-emerald-600" /> 优势强化建议

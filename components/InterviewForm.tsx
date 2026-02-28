@@ -94,9 +94,12 @@ const InterviewForm: React.FC<InterviewFormProps> = ({ session, onBack, onStart,
   
   // Analysis Panel State
   const [selectedPeriod, setSelectedPeriod] = useState(session.period || '2025 Q4');
-  const [analysisView, setAnalysisView] = useState<'summary' | 'details'>('summary');
+  const [analysisView, setAnalysisView] = useState<'summary' | 'details'>(isDirect ? 'details' : 'summary');
   const [selectedHistoryRecord, setSelectedHistoryRecord] = useState<HistoricalRecord | null>(null);
   const [selectedIndicator, setSelectedIndicator] = useState<any>(null);
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [isOthersScoresDrawerOpen, setIsOthersScoresDrawerOpen] = useState(false);
+  const [isActivityLogDrawerOpen, setIsActivityLogDrawerOpen] = useState(false);
   
   // Modal State
   const [conflictModalOpen, setConflictModalOpen] = useState(false);
@@ -128,13 +131,13 @@ const InterviewForm: React.FC<InterviewFormProps> = ({ session, onBack, onStart,
               ref: false
           }
       }));
+      setAnalysisView(isDirect ? 'details' : 'summary');
   }, [session.id, isDirect]);
 
   // Scroll Anchors Refs
   const overviewRef = useRef<HTMLDivElement>(null);
   const historyRef = useRef<HTMLDivElement>(null);
 
-  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [formValues, setFormValues] = useState<Record<string, string>>({});
   const [saveStatus, setSaveStatus] = useState<'saved' | 'saving'>('saved'); // Auto-save status
   const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -586,24 +589,26 @@ const InterviewForm: React.FC<InterviewFormProps> = ({ session, onBack, onStart,
                 </div>
             </div>
             
-            <div className="flex space-x-6 text-xs font-medium text-gray-500">
-                <button 
-                    onClick={() => setAnalysisView('summary')} 
-                    className={`pb-2 border-b-2 transition-colors ${analysisView === 'summary' ? 'border-blue-600 text-blue-600 font-bold' : 'border-transparent hover:text-blue-600'}`}
-                >
-                    总结概览
-                </button>
-                <button 
-                    onClick={() => setAnalysisView('details')} 
-                    className={`pb-2 border-b-2 transition-colors ${analysisView === 'details' ? 'border-blue-600 text-blue-600 font-bold' : 'border-transparent hover:text-blue-600'}`}
-                >
-                    考核表明细
-                </button>
-            </div>
+            {!isDirect && (
+                <div className="flex space-x-6 text-xs font-medium text-gray-500">
+                    <button 
+                        onClick={() => setAnalysisView('summary')} 
+                        className={`pb-2 border-b-2 transition-colors ${analysisView === 'summary' ? 'border-blue-600 text-blue-600 font-bold' : 'border-transparent hover:text-blue-600'}`}
+                    >
+                        总结概览
+                    </button>
+                    <button 
+                        onClick={() => setAnalysisView('details')} 
+                        className={`pb-2 border-b-2 transition-colors ${analysisView === 'details' ? 'border-blue-600 text-blue-600 font-bold' : 'border-transparent hover:text-blue-600'}`}
+                    >
+                        考核表明细
+                    </button>
+                </div>
+            )}
         </div>
 
         <div className="flex-1 overflow-y-auto custom-scrollbar bg-gray-50/30 p-6 space-y-8">
-            {analysisView === 'summary' ? (
+            {(!isDirect && analysisView === 'summary') ? (
                 <>
                     <div ref={overviewRef} className="scroll-mt-4">
                         <div className="flex items-center justify-between mb-3">
@@ -661,7 +666,12 @@ const InterviewForm: React.FC<InterviewFormProps> = ({ session, onBack, onStart,
                 </>
             ) : (
                 <div className="bg-white rounded-xl border border-gray-200 shadow-[0_2px_8px_rgba(0,0,0,0.04)] overflow-hidden">
-                    <AssessmentDetailTable detail={assessmentDetail} period={selectedPeriod} />
+                    <AssessmentDetailTable 
+                        detail={assessmentDetail} 
+                        period={selectedPeriod} 
+                        onViewOthersScores={() => setIsOthersScoresDrawerOpen(true)}
+                        onViewActivityLog={() => setIsActivityLogDrawerOpen(true)}
+                    />
                 </div>
             )}
         </div>
@@ -1221,6 +1231,93 @@ const InterviewForm: React.FC<InterviewFormProps> = ({ session, onBack, onStart,
               </div>
           </div>
       )}
+
+        {/* Others Scores Drawer */}
+        <div className={`fixed inset-y-0 right-0 w-[450px] bg-white shadow-2xl z-[100] transform transition-transform duration-300 ease-in-out flex flex-col ${isOthersScoresDrawerOpen ? 'translate-x-0' : 'translate-x-full'}`}>
+            <div className="px-6 py-5 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
+                <h3 className="text-lg font-bold text-gray-900 flex items-center">
+                    <Users size={18} className="text-blue-600 mr-2" />
+                    他人评分详情
+                </h3>
+                <button onClick={() => setIsOthersScoresDrawerOpen(false)} className="p-1.5 hover:bg-gray-200 rounded-full text-gray-500 transition-colors">
+                    <X size={18} />
+                </button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-6 bg-gray-50/30">
+                <div className="space-y-6">
+                    {/* Mock Data for Others Scores */}
+                    {[
+                        { role: '虚线主管', name: '李四', score: 85, comment: '在跨部门协作中表现积极，但项目交付略有延迟。' },
+                        { role: '平级同事', name: '王五', score: 90, comment: '技术能力强，乐于分享，团队合作融洽。' },
+                        { role: '下属', name: '赵六', score: 95, comment: '指导耐心，团队氛围好，是一位好导师。' },
+                    ].map((item, idx) => (
+                        <div key={idx} className="bg-white rounded-xl border border-gray-100 p-5 shadow-sm">
+                            <div className="flex justify-between items-center mb-4">
+                                <div className="flex items-center space-x-3">
+                                    <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold text-sm">
+                                        {item.name[0]}
+                                    </div>
+                                    <div>
+                                        <div className="text-sm font-bold text-gray-900">{item.name}</div>
+                                        <div className="text-xs text-gray-500">{item.role}</div>
+                                    </div>
+                                </div>
+                                <div className="text-right">
+                                    <div className="text-lg font-bold text-blue-600">{item.score}分</div>
+                                </div>
+                            </div>
+                            <div className="text-sm text-gray-600 bg-gray-50 p-3 rounded-lg leading-relaxed">
+                                "{item.comment}"
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            </div>
+        </div>
+
+        {/* Activity Log Drawer */}
+        <div className={`fixed inset-y-0 right-0 w-[450px] bg-white shadow-2xl z-[100] transform transition-transform duration-300 ease-in-out flex flex-col ${isActivityLogDrawerOpen ? 'translate-x-0' : 'translate-x-full'}`}>
+            <div className="px-6 py-5 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
+                <h3 className="text-lg font-bold text-gray-900 flex items-center">
+                    <Activity size={18} className="text-blue-600 mr-2" />
+                    活动日志
+                </h3>
+                <button onClick={() => setIsActivityLogDrawerOpen(false)} className="p-1.5 hover:bg-gray-200 rounded-full text-gray-500 transition-colors">
+                    <X size={18} />
+                </button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-6 bg-gray-50/30">
+                <div className="relative border-l-2 border-gray-200 ml-4 space-y-8 pb-8">
+                    {/* Mock Data for Activity Log */}
+                    {[
+                        { time: '2026-02-28 10:30', action: '提交了自评', user: '张妮' },
+                        { time: '2026-02-27 15:45', action: '更新了 OKR 进度', user: '张妮' },
+                        { time: '2026-02-25 09:12', action: '完成了平级评价', user: '王五' },
+                        { time: '2026-02-20 14:20', action: '发起了绩效考核', user: '系统' },
+                    ].map((log, idx) => (
+                        <div key={idx} className="relative pl-6">
+                            <div className="absolute -left-[9px] top-1 w-4 h-4 rounded-full bg-white border-2 border-blue-500"></div>
+                            <div className="text-xs font-bold text-gray-500 mb-1">{log.time}</div>
+                            <div className="bg-white rounded-lg border border-gray-100 p-3 shadow-sm">
+                                <span className="font-bold text-gray-800 text-sm mr-2">{log.user}</span>
+                                <span className="text-sm text-gray-600">{log.action}</span>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            </div>
+        </div>
+
+        {/* Overlay for Drawers */}
+        {(isOthersScoresDrawerOpen || isActivityLogDrawerOpen) && (
+            <div 
+                className="fixed inset-0 bg-black/20 backdrop-blur-sm z-[90] transition-opacity"
+                onClick={() => {
+                    setIsOthersScoresDrawerOpen(false);
+                    setIsActivityLogDrawerOpen(false);
+                }}
+            ></div>
+        )}
 
     </div>
   );

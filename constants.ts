@@ -116,8 +116,24 @@ export const MOCK_TEMPLATES: InterviewTemplate[] = [
             columns: 2,
             fields: [
                 { id: 'f1', label: '绩效综述', type: 'textarea', required: true, width: 'full', placeholder: '请简述员工本季度的整体表现...' },
+                { id: 'f_rating', label: '整体评分', type: 'rating', required: true, width: 'half' },
+                { id: 'f_score', label: 'KPI 得分', type: 'number', required: true, width: 'half', placeholder: '0-100' },
+                { id: 'f_level', label: '绩效等级', type: 'select', required: true, width: 'half', options: ['S', 'A', 'B', 'C', 'D'] },
                 { id: 'f2', label: '主要成就', type: 'textarea', required: true, width: 'half', placeholder: '列举 1-3 项关键产出...' },
                 { id: 'f3', label: '待改进领域', type: 'textarea', required: true, width: 'half', placeholder: '指出需要提升的能力或行为...' },
+            ]
+        },
+        {
+            id: 's_projects',
+            title: '重点项目明细',
+            viewType: 'table',
+            columns: 1,
+            fields: [
+                { id: 'p_name', label: '项目名称', type: 'text', required: true, width: 'one-fifth' },
+                { id: 'p_role', label: '担任角色', type: 'select', required: true, width: 'one-fifth', options: ['负责人', '核心成员', '参与者'] },
+                { id: 'p_contribution', label: '贡献度', type: 'rating', required: true, width: 'one-fifth' },
+                { id: 'p_status', label: '项目状态', type: 'select', required: true, width: 'one-fifth', options: ['进行中', '已完成', '延期', '暂停'] },
+                { id: 'p_remark', label: '备注', type: 'text', required: false, width: 'one-fifth' }
             ]
         },
         {

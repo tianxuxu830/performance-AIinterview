@@ -36,7 +36,7 @@ export interface Employee {
   avatar: string;
 }
 
-export type FieldType = 'text' | 'textarea' | 'rating' | 'date' | 'number' | 'attachment';
+export type FieldType = 'text' | 'textarea' | 'rating' | 'date' | 'number' | 'attachment' | 'select';
 
 export interface TemplateField {
   id: string;
@@ -45,6 +45,7 @@ export interface TemplateField {
   required: boolean;
   placeholder?: string;
   width?: 'full' | 'half' | 'one-third';
+  options?: string[];
 }
 
 export interface TemplateSection {

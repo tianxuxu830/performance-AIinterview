@@ -1,14 +1,15 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
     ChevronLeft, MoreHorizontal, Filter, Clock, ChevronRight, 
     User, Calendar, FileText, CheckCircle2, Star, Mic, Camera, 
     Send, LayoutGrid, Users, Briefcase, Search, Bell, Video, Edit3,
     MapPin, AlignLeft, BarChart2, Info, Sparkles, Target, Activity,
-    ChevronDown, AlertTriangle, TrendingUp, Eye, ThumbsUp, Minus, X
+    ChevronDown, AlertTriangle, TrendingUp, Eye, ThumbsUp, Minus, X, RotateCw, Plus
 } from 'lucide-react';
 import { InterviewSession, Status } from '../types';
-import { MOCK_TEMPLATES, MOCK_AI_OUTLINE } from '../constants';
+import { MOCK_TEMPLATES, MOCK_AI_OUTLINE, MOCK_ASSESSMENT_DETAILS } from '../constants';
+import PerformanceAnalysisSummary from './PerformanceAnalysisSummary';
 
 interface MobileAppProps {
   sessions: InterviewSession[];
@@ -18,20 +19,50 @@ interface MobileAppProps {
 const MobileApp: React.FC<MobileAppProps> = ({ sessions, onClose }) => {
   const [localSessions, setLocalSessions] = useState<InterviewSession[]>(sessions);
   const [activeTab, setActiveTab] = useState<'workbench' | 'team' | 'me'>('workbench');
-  const [workbenchView, setWorkbenchView] = useState<'dashboard' | 'interviewList' | 'schedule' | 'feedback' | 'prepare'>('dashboard');
+  const [workbenchView, setWorkbenchView] = useState<'dashboard' | 'interviewList' | 'schedule' | 'feedback' | 'prepare' | 'confirm'>('dashboard');
   const [interviewListTab, setInterviewListTab] = useState<'schedule' | 'start' | 'feedback' | 'confirm' | 'done'>('schedule');
   const [teamTab, setTeamTab] = useState<'subordinate' | 'org'>('subordinate');
   const [meTab, setMeTab] = useState<'active' | 'completed'>('active');
   const [prepareTab, setPrepareTab] = useState<'analysis' | 'outline' | 'info'>('analysis');
-  const [feedbackTab, setFeedbackTab] = useState<'form' | 'analysis'>('form');
+  const [feedbackTab, setFeedbackTab] = useState<'form' | 'analysis' | 'detail'>('form');
+  const [confirmTab, setConfirmTab] = useState<'summary' | 'form' | 'analysis'>('summary');
   
   const [selectedSession, setSelectedSession] = useState<InterviewSession | null>(null);
+
+  // Feedback Form State
+  const [feedbackFormValues, setFeedbackFormValues] = useState<Record<string, any>>({
+      // Mock initial data for table
+      's_projects': [
+          { id: 'row1', p_name: 'Q4 核心业务攻坚', p_role: '负责人', p_contribution: 5, p_status: '进行中', p_remark: '进度符合预期' },
+          { id: 'row2', p_name: '团队与价值观建设', p_role: '核心成员', p_contribution: 4, p_status: '已完成', p_remark: '效果显著' }
+      ],
+      'f_rating': 4,
+      'f_score': 92,
+      'f_level': 'A'
+  });
+  const [isGeneratingAI, setIsGeneratingAI] = useState<string | null>(null);
+  const [hasGeneratedAI, setHasGeneratedAI] = useState(false);
+  
+  // Table Row Edit State
+  const [editingRow, setEditingRow] = useState<{ sectionId: string, rowIndex: number, data: any } | null>(null);
   
   // Submit Confirmation Modal State
   const [isSubmitModalOpen, setIsSubmitModalOpen] = useState(false);
   const [submitPermission, setSubmitPermission] = useState<'read' | 'edit'>('read');
+
+  // Signature Modal State
+  const [isSignatureModalOpen, setIsSignatureModalOpen] = useState(false);
+  const [hasSignature, setHasSignature] = useState(false);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [isDrawing, setIsDrawing] = useState(false);
   
+  const [isHeaderCollapsed, setIsHeaderCollapsed] = useState(false);
+
   const [currentTime, setCurrentTime] = useState('');
+
+  useEffect(() => {
+    setIsHeaderCollapsed(false);
+  }, [workbenchView]);
 
   useEffect(() => {
     const updateTime = () => {
@@ -42,6 +73,48 @@ const MobileApp: React.FC<MobileAppProps> = ({ sessions, onClose }) => {
     const interval = setInterval(updateTime, 60000);
     return () => clearInterval(interval);
   }, []);
+
+  const handleGlobalAIGenerate = () => {
+    setIsGeneratingAI('global');
+    // Simulate AI generation delay
+    setTimeout(() => {
+        const mockResponses: Record<string, string> = {
+            'summary': "基于该员工本周期的表现，整体业绩达成率较高，但在跨部门协作方面仍有提升空间。建议后续加强与产品团队的沟通频次，确保需求理解的一致性。同时，在项目管理方面表现出色，能够有效把控进度风险。",
+            'achievements': "1. 成功主导了 Q4 核心版本的发布，上线后用户活跃度提升 15%。\n2. 优化了前端构建流程，打包速度提升 40%。\n3. 输出了 3 篇高质量的技术分享文档，帮助团队成员快速成长。",
+            'improvements': "1. 跨部门沟通时需更加主动，避免信息滞后。\n2. 代码注释规范性有待加强，建议遵循团队最新规范。\n3. 对新技术的探索深度不够，建议投入更多时间进行技术预研。",
+            'plan': "1. 制定详细的 Q1 个人成长计划，重点攻克 Serverless 架构落地。\n2. 每周组织一次代码走查，提升代码质量。\n3. 参与开源社区贡献，提升个人及团队影响力。"
+        };
+
+        // Find all textarea fields in the template and populate them
+        const newValues: Record<string, string> = { ...feedbackFormValues };
+        
+        // Assuming we can access the template here or pass it. 
+        // Since we are inside the component, we can access MOCK_TEMPLATES.
+        // But for simplicity, let's just map known IDs or iterate if possible.
+        // In a real app, we'd iterate the template structure.
+        // Here we'll just populate based on the mock template structure we know.
+        
+        if (selectedSession) {
+             const template = MOCK_TEMPLATES.find(t => t.id === selectedSession.templateId) || MOCK_TEMPLATES[0];
+             template.sections.forEach(section => {
+                 section.fields.forEach(field => {
+                     if (field.type === 'textarea') {
+                         // Simple logic to pick a mock response based on field ID or label
+                         if (field.id.includes('summary')) newValues[field.id] = mockResponses['summary'];
+                         else if (field.id.includes('achievement')) newValues[field.id] = mockResponses['achievements'];
+                         else if (field.id.includes('improvement')) newValues[field.id] = mockResponses['improvements'];
+                         else if (field.id.includes('plan')) newValues[field.id] = mockResponses['plan'];
+                         else newValues[field.id] = mockResponses['summary']; // Fallback
+                     }
+                 });
+             });
+        }
+
+        setFeedbackFormValues(newValues);
+        setIsGeneratingAI(null);
+        setHasGeneratedAI(true);
+    }, 2000);
+  };
 
   // Determine if Bottom Bar should be visible
   const showBottomBar = activeTab !== 'workbench' || (workbenchView === 'dashboard' || workbenchView === 'interviewList');
@@ -564,9 +637,15 @@ const MobileApp: React.FC<MobileAppProps> = ({ sessions, onClose }) => {
                       </button>
                       <button 
                           onClick={() => {
+                              if (selectedSession) {
+                                  const updatedSession = { ...selectedSession, status: Status.PendingConfirmation };
+                                  setLocalSessions(prev => prev.map(s => s.id === updatedSession.id ? updatedSession : s));
+                                  setSelectedSession(updatedSession);
+                              }
                               setIsSubmitModalOpen(false);
                               alert("已发送给员工确认！");
                               setWorkbenchView('interviewList');
+                              setInterviewListTab('confirm');
                           }}
                           className="flex-1 py-2.5 bg-gray-900 text-white rounded-xl text-sm font-bold shadow-lg hover:bg-black transition-colors flex items-center justify-center"
                       >
@@ -582,56 +661,7 @@ const MobileApp: React.FC<MobileAppProps> = ({ sessions, onClose }) => {
       if (!selectedSession) return null;
       const template = MOCK_TEMPLATES.find(t => t.id === selectedSession.templateId) || MOCK_TEMPLATES[0];
 
-      // Reuse Analysis Data Logic
-      const analysisData = {
-          score: '88.5',
-          grade: 'A',
-          achievement: '95%',
-          highlights: [
-              { id: 'h1', title: '出勤率', self: 100, manager: 100, tag: '业绩亮点', type: 'highlight' }
-          ],
-          improvements: [
-              { id: 'i1', title: '核心业务指标完成度', self: 80, manager: 70, tag: '待改进', type: 'improvement' }
-          ],
-          conflicts: [
-              { 
-                  id: 'c1', 
-                  title: '评价冲突', 
-                  self: 100, 
-                  manager: 100, 
-                  tag: '重点沟通', 
-                  type: 'conflict',
-                  quote: '“本季度主要在摸索阶段，产出有限”，但自评分数：100分。',
-                  diff: 25 
-              }
-          ]
-      };
-
-      const renderTag = (type: string, tag: string, diff?: number) => {
-          let styles = '';
-          let icon = null;
-          if (type === 'conflict') {
-              styles = 'bg-purple-50 text-purple-700 border-purple-100';
-              icon = <AlertTriangle size={10} className="mr-1" />;
-          } else if (type === 'improvement') {
-              styles = 'bg-orange-50 text-orange-700 border-orange-100';
-              icon = <TrendingUp size={10} className="mr-1" />;
-          } else {
-              styles = 'bg-green-50 text-green-700 border-green-100';
-              icon = <ThumbsUp size={10} className="mr-1" />;
-          }
-
-          return (
-              <div className="flex items-center">
-                  <span className={`flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold border ${styles}`}>
-                      {icon} {tag}
-                  </span>
-                  {type === 'conflict' && (
-                      <span className="ml-2 text-[10px] bg-red-50 text-red-500 px-1.5 py-0.5 rounded font-bold border border-red-100">分差 {diff || 0}</span>
-                  )}
-              </div>
-          );
-      };
+      const assessmentDetail = MOCK_ASSESSMENT_DETAILS[selectedSession.employeeId] || MOCK_ASSESSMENT_DETAILS['default'];
 
       return (
         <div className="flex-1 bg-gray-50 flex flex-col overflow-hidden animate-in slide-in-from-right duration-300 relative z-20">
@@ -641,13 +671,45 @@ const MobileApp: React.FC<MobileAppProps> = ({ sessions, onClose }) => {
                 <span className="text-base font-bold text-gray-800">面谈反馈</span>
             </div>
 
+            {/* Employee Info Card - Collapsible */}
+            <div className={`bg-white px-4 shrink-0 transition-all duration-300 ease-in-out overflow-hidden ${isHeaderCollapsed ? 'pt-2 pb-0 h-14' : 'pt-4 pb-2 h-auto'}`}>
+                {isHeaderCollapsed ? (
+                    <div className="flex items-center justify-between py-2 animate-in fade-in slide-in-from-top-2 duration-300">
+                        <div className="flex items-center">
+                            <div className="w-8 h-8 rounded-full bg-purple-50 text-purple-600 flex items-center justify-center font-bold text-xs mr-2 border border-purple-100">
+                                {selectedSession.employeeName.charAt(0)}
+                            </div>
+                            <span className="text-sm font-bold text-gray-900 mr-2">{selectedSession.employeeName}</span>
+                            <span className="text-xs text-gray-400">{selectedSession.period}</span>
+                        </div>
+                        <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded scale-90 origin-right">正在反馈</span>
+                    </div>
+                ) : (
+                    <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 animate-in fade-in zoom-in-95 duration-300">
+                        <div className="flex justify-between items-center mb-2">
+                            <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded">正在反馈</span>
+                            <span className="text-xs font-bold text-gray-400">{new Date().toISOString().split('T')[0]}</span>
+                        </div>
+                        <div className="flex items-center">
+                            <div className="w-10 h-10 rounded-full bg-purple-50 text-purple-600 flex items-center justify-center font-bold text-sm mr-3 border border-purple-100">
+                                {selectedSession.employeeName.charAt(0)}
+                            </div>
+                            <div>
+                                <div className="text-sm font-bold text-gray-900">{selectedSession.employeeName}</div>
+                                <div className="text-xs text-gray-500 mt-0.5">{selectedSession.period}</div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+            </div>
+
             {/* Tabs */}
             <div className="bg-white px-4 border-b border-gray-100 flex space-x-6 sticky top-0 z-10 shadow-sm">
                 <button 
                     onClick={() => setFeedbackTab('form')}
                     className={`pb-3 pt-3 text-sm font-medium border-b-2 transition-colors ${feedbackTab === 'form' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500'}`}
                 >
-                    绩效反馈表
+                    面谈反馈表
                 </button>
                 <button 
                     onClick={() => setFeedbackTab('analysis')}
@@ -655,29 +717,42 @@ const MobileApp: React.FC<MobileAppProps> = ({ sessions, onClose }) => {
                 >
                     考核总结分析
                 </button>
+                <button 
+                    onClick={() => setFeedbackTab('detail')}
+                    className={`pb-3 pt-3 text-sm font-medium border-b-2 transition-colors ${feedbackTab === 'detail' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500'}`}
+                >
+                    考核表明细
+                </button>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-4 custom-scrollbar pb-20">
-                {/* Employee Info Card (Visible in both tabs or just one? Let's keep it in both for context or move it inside tabs if needed. The prompt implies tabs for content. I'll put it above content if appropriate, but the design shows tabs. Let's put content inside.) */}
-                
-                <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 mb-4">
-                    <div className="flex justify-between items-center mb-2">
-                        <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded">正在反馈</span>
-                        <span className="text-xs font-bold text-gray-400">{new Date().toISOString().split('T')[0]}</span>
-                    </div>
-                    <div className="flex items-center">
-                        <div className="w-10 h-10 rounded-full bg-purple-50 text-purple-600 flex items-center justify-center font-bold text-sm mr-3 border border-purple-100">
-                            {selectedSession.employeeName.charAt(0)}
-                        </div>
-                        <div>
-                            <div className="text-sm font-bold text-gray-900">{selectedSession.employeeName}</div>
-                            <div className="text-xs text-gray-500 mt-0.5">{selectedSession.period}</div>
-                        </div>
-                    </div>
-                </div>
+            <div 
+                className="flex-1 overflow-y-auto p-4 custom-scrollbar pb-20"
+                onScroll={(e) => setIsHeaderCollapsed(e.currentTarget.scrollTop > 20)}
+            >
 
                 {feedbackTab === 'form' && (
                     <div className="space-y-4 pb-4 animate-in fade-in">
+                        {/* Global AI Generate Button - Compact Version */}
+                        <div className="bg-gradient-to-r from-purple-50 to-blue-50 px-3 py-2 rounded-lg border border-purple-100 flex items-center justify-between shadow-sm">
+                            <div className="flex items-center">
+                                <Sparkles size={14} className="text-purple-600 mr-2" />
+                                <span className="text-xs font-bold text-purple-900">AI 智能辅助填写</span>
+                                <span className="text-[10px] text-purple-400 ml-2 scale-90 origin-left">基于员工表现自动生成</span>
+                            </div>
+                            <button 
+                                onClick={handleGlobalAIGenerate}
+                                disabled={isGeneratingAI === 'global'}
+                                className="px-2.5 py-1 bg-white text-purple-600 text-[10px] font-bold rounded-md border border-purple-100 shadow-sm active:scale-95 transition-transform flex items-center"
+                            >
+                                {isGeneratingAI === 'global' ? (
+                                    <div className="animate-spin rounded-full h-2.5 w-2.5 border-b-2 border-purple-600 mr-1"></div>
+                                ) : (
+                                    hasGeneratedAI ? <RotateCw size={10} className="mr-1" /> : <Sparkles size={10} className="mr-1" />
+                                )}
+                                {isGeneratingAI === 'global' ? '生成中...' : (hasGeneratedAI ? '重新生成' : '一键生成')}
+                            </button>
+                        </div>
+
                         {template.sections.map((section, idx) => (
                             <div key={section.id} className="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
                                 <div className="flex items-center mb-3">
@@ -685,30 +760,402 @@ const MobileApp: React.FC<MobileAppProps> = ({ sessions, onClose }) => {
                                     <h4 className="font-bold text-sm text-gray-800">{section.title}</h4>
                                 </div>
                                 
+                                {section.viewType === 'table' ? (
+                                    <div className="overflow-x-auto">
+                                        <table className="w-full text-left border-collapse">
+                                            <thead>
+                                                <tr className="border-b border-gray-100">
+                                                    {section.fields.map(field => (
+                                                        <th key={field.id} className="py-2 px-2 text-xs font-bold text-gray-500 whitespace-nowrap">
+                                                            {field.label}
+                                                        </th>
+                                                    ))}
+                                                    <th className="py-2 px-2 text-xs font-bold text-gray-500 w-10"></th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {(feedbackFormValues[section.id] || []).map((row: any, rowIndex: number) => (
+                                                    <tr 
+                                                        key={row.id || rowIndex} 
+                                                        className="border-b border-gray-50 last:border-0 hover:bg-gray-50 active:bg-gray-100 transition-colors cursor-pointer"
+                                                        onClick={() => setEditingRow({ sectionId: section.id, rowIndex, data: { ...row } })}
+                                                    >
+                                                        {section.fields.map(field => (
+                                                            <td key={field.id} className="py-3 px-2 text-xs text-gray-800">
+                                                                {field.type === 'rating' ? (
+                                                                    <div className="flex space-x-0.5">
+                                                                        {[1,2,3,4,5].map(i => (
+                                                                            <Star key={i} size={10} className={`${i <= (row[field.id] || 0) ? 'text-yellow-400 fill-yellow-400' : 'text-gray-200 fill-gray-100'}`} />
+                                                                        ))}
+                                                                    </div>
+                                                                ) : (
+                                                                    <span className="line-clamp-1">{row[field.id]}</span>
+                                                                )}
+                                                            </td>
+                                                        ))}
+                                                        <td className="py-3 px-2 text-gray-400">
+                                                            <ChevronRight size={14} />
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                        <button 
+                                            className="mt-3 w-full py-2 border border-dashed border-gray-300 rounded-lg text-xs text-gray-500 hover:bg-gray-50 flex items-center justify-center"
+                                            onClick={() => {
+                                                const newRow = section.fields.reduce((acc: any, field) => {
+                                                    acc[field.id] = field.type === 'rating' ? 0 : '';
+                                                    return acc;
+                                                }, { id: Date.now().toString() });
+                                                const currentRows = feedbackFormValues[section.id] || [];
+                                                setEditingRow({ sectionId: section.id, rowIndex: currentRows.length, data: newRow });
+                                            }}
+                                        >
+                                            <Plus size={12} className="mr-1" /> 添加{section.title}
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <div className="space-y-4">
+                                        {section.fields.map(field => (
+                                            <div key={field.id}>
+                                                <div className="flex justify-between items-center mb-2">
+                                                    <label className="block text-xs font-bold text-gray-500">
+                                                        {field.label} {field.required && <span className="text-red-500">*</span>}
+                                                    </label>
+                                                </div>
+                                                {field.type === 'textarea' ? (
+                                                    <textarea 
+                                                        className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2.5 text-sm text-gray-800 outline-none focus:border-blue-500 transition-colors h-24 resize-none"
+                                                        placeholder={field.placeholder || "请输入..."}
+                                                        value={feedbackFormValues[field.id] || ''}
+                                                        onChange={(e) => setFeedbackFormValues({...feedbackFormValues, [field.id]: e.target.value})}
+                                                    ></textarea>
+                                                ) : field.type === 'rating' ? (
+                                                    <div className="flex space-x-2">
+                                                        {[1,2,3,4,5].map(i => (
+                                                            <Star 
+                                                                key={i} 
+                                                                size={24} 
+                                                                className={`${i <= (feedbackFormValues[field.id] || 0) ? 'text-yellow-400 fill-yellow-400' : 'text-gray-300 fill-gray-100'} hover:text-yellow-400 cursor-pointer transition-colors`} 
+                                                                onClick={() => setFeedbackFormValues({...feedbackFormValues, [field.id]: i})}
+                                                            />
+                                                        ))}
+                                                    </div>
+                                                ) : field.type === 'select' ? (
+                                                    <div className="relative">
+                                                        <select 
+                                                            className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2.5 text-sm text-gray-800 outline-none focus:border-blue-500 transition-colors appearance-none"
+                                                            value={feedbackFormValues[field.id] || ''}
+                                                            onChange={(e) => setFeedbackFormValues({...feedbackFormValues, [field.id]: e.target.value})}
+                                                        >
+                                                            <option value="" disabled>请选择</option>
+                                                            {field.options?.map(opt => (
+                                                                <option key={opt} value={opt}>{opt}</option>
+                                                            ))}
+                                                        </select>
+                                                        <ChevronDown size={16} className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none" />
+                                                    </div>
+                                                ) : field.type === 'number' ? (
+                                                    <input 
+                                                        type="number" 
+                                                        className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2.5 text-sm text-gray-800 outline-none focus:border-blue-500 transition-colors"
+                                                        placeholder={field.placeholder}
+                                                        value={feedbackFormValues[field.id] || ''}
+                                                        onChange={(e) => setFeedbackFormValues({...feedbackFormValues, [field.id]: e.target.value})}
+                                                    />
+                                                ) : (
+                                                    <input 
+                                                        type="text" 
+                                                        className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2.5 text-sm text-gray-800 outline-none focus:border-blue-500 transition-colors"
+                                                        placeholder={field.placeholder}
+                                                        value={feedbackFormValues[field.id] || ''}
+                                                        onChange={(e) => setFeedbackFormValues({...feedbackFormValues, [field.id]: e.target.value})}
+                                                    />
+                                                )}
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        ))}
+                    </div>
+                )}
+
+                {feedbackTab === 'detail' && (
+                    <div className="space-y-4 animate-in fade-in">
+                        <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                            <div className="p-4 border-b border-gray-100 bg-gray-50/50 flex justify-between items-center">
+                                <h3 className="font-bold text-sm text-gray-900">考核指标明细</h3>
+                                <div className="text-xs text-gray-500">总分: <span className="font-bold text-blue-600 text-sm">{assessmentDetail.score}</span></div>
+                            </div>
+                            <div className="divide-y divide-gray-100">
+                                {assessmentDetail.indicators?.map((indicator) => (
+                                    <div key={indicator.id} className="p-4">
+                                        <div className="flex justify-between items-start mb-2">
+                                            <div className="flex-1 mr-4">
+                                                <div className="flex items-center mb-1">
+                                                    <span className="text-xs font-bold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded mr-2 shrink-0">{indicator.weight}%</span>
+                                                    <span className="text-sm font-bold text-gray-900 line-clamp-1">{indicator.name}</span>
+                                                </div>
+                                                <p className="text-xs text-gray-500 line-clamp-2">{indicator.description}</p>
+                                            </div>
+                                            <div className="flex flex-col items-end shrink-0">
+                                                <div className="flex items-center space-x-3 text-xs mb-1">
+                                                    <span className="text-gray-400">自评</span>
+                                                    <span className="font-bold text-gray-700">{indicator.selfScore}</span>
+                                                </div>
+                                                <div className="flex items-center space-x-3 text-xs">
+                                                    <span className="text-gray-400">上级</span>
+                                                    <span className={`font-bold ${indicator.managerScore !== indicator.selfScore ? 'text-orange-500' : 'text-blue-600'}`}>{indicator.managerScore}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        {indicator.managerScore !== indicator.selfScore && (
+                                            <div className="mt-2 bg-orange-50 p-2 rounded text-[10px] text-orange-700 flex items-start">
+                                                <AlertTriangle size={12} className="mr-1 mt-0.5 shrink-0" />
+                                                <span>评分差异：{Math.abs(indicator.managerScore - indicator.selfScore)}分。请重点沟通。</span>
+                                            </div>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                )}
+            </div>
+
+            {/* Row Edit Modal */}
+            {editingRow && selectedSession && (
+                <div className="absolute inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur-sm animate-in fade-in">
+                    <div className="bg-white rounded-t-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl animate-in slide-in-from-bottom duration-300">
+                        <div className="px-5 py-4 border-b border-gray-100 flex justify-between items-center sticky top-0 bg-white z-10">
+                            <h3 className="font-bold text-gray-900 text-lg">编辑明细</h3>
+                            <button onClick={() => setEditingRow(null)} className="text-gray-400 hover:text-gray-600">
+                                <X size={20} />
+                            </button>
+                        </div>
+                        
+                        <div className="p-5 space-y-5">
+                            {(() => {
+                                const template = MOCK_TEMPLATES.find(t => t.id === selectedSession.templateId) || MOCK_TEMPLATES[0];
+                                const section = template.sections.find(s => s.id === editingRow.sectionId);
+                                if (!section) return null;
+
+                                return section.fields.map(field => (
+                                    <div key={field.id}>
+                                        <label className="block text-xs font-bold text-gray-500 mb-2">
+                                            {field.label} {field.required && <span className="text-red-500">*</span>}
+                                        </label>
+                                        {field.type === 'textarea' ? (
+                                            <textarea 
+                                                className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2.5 text-sm text-gray-800 outline-none focus:border-blue-500 transition-colors h-24 resize-none"
+                                                value={editingRow.data[field.id] || ''}
+                                                onChange={(e) => setEditingRow({ ...editingRow, data: { ...editingRow.data, [field.id]: e.target.value } })}
+                                            ></textarea>
+                                        ) : field.type === 'rating' ? (
+                                            <div className="flex space-x-2">
+                                                {[1,2,3,4,5].map(i => (
+                                                    <Star 
+                                                        key={i} 
+                                                        size={28} 
+                                                        className={`${i <= (editingRow.data[field.id] || 0) ? 'text-yellow-400 fill-yellow-400' : 'text-gray-300 fill-gray-100'} cursor-pointer transition-colors`} 
+                                                        onClick={() => setEditingRow({ ...editingRow, data: { ...editingRow.data, [field.id]: i } })}
+                                                    />
+                                                ))}
+                                            </div>
+                                        ) : field.type === 'select' ? (
+                                            <div className="relative">
+                                                <select 
+                                                    className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2.5 text-sm text-gray-800 outline-none focus:border-blue-500 transition-colors appearance-none"
+                                                    value={editingRow.data[field.id] || ''}
+                                                    onChange={(e) => setEditingRow({ ...editingRow, data: { ...editingRow.data, [field.id]: e.target.value } })}
+                                                >
+                                                    <option value="" disabled>请选择</option>
+                                                    {field.options?.map(opt => (
+                                                        <option key={opt} value={opt}>{opt}</option>
+                                                    ))}
+                                                </select>
+                                                <ChevronDown size={16} className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none" />
+                                            </div>
+                                        ) : field.type === 'number' ? (
+                                            <input 
+                                                type="number" 
+                                                className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2.5 text-sm text-gray-800 outline-none focus:border-blue-500 transition-colors"
+                                                value={editingRow.data[field.id] || ''}
+                                                onChange={(e) => setEditingRow({ ...editingRow, data: { ...editingRow.data, [field.id]: e.target.value } })}
+                                            />
+                                        ) : (
+                                            <input 
+                                                type="text" 
+                                                className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2.5 text-sm text-gray-800 outline-none focus:border-blue-500 transition-colors"
+                                                value={editingRow.data[field.id] || ''}
+                                                onChange={(e) => setEditingRow({ ...editingRow, data: { ...editingRow.data, [field.id]: e.target.value } })}
+                                            />
+                                        )}
+                                    </div>
+                                ));
+                            })()}
+                        </div>
+
+                        <div className="px-5 py-4 border-t border-gray-100 flex space-x-3 bg-white pb-8">
+                            <button 
+                                onClick={() => setEditingRow(null)}
+                                className="flex-1 py-3 bg-gray-100 text-gray-600 rounded-xl text-sm font-medium hover:bg-gray-200 transition-colors"
+                            >
+                                取消
+                            </button>
+                            <button 
+                                onClick={() => {
+                                    const currentRows = feedbackFormValues[editingRow.sectionId] || [];
+                                    const newRows = [...currentRows];
+                                    if (editingRow.rowIndex < currentRows.length) {
+                                        newRows[editingRow.rowIndex] = editingRow.data;
+                                    } else {
+                                        newRows.push(editingRow.data);
+                                    }
+                                    setFeedbackFormValues({ ...feedbackFormValues, [editingRow.sectionId]: newRows });
+                                    setEditingRow(null);
+                                }}
+                                className="flex-1 py-3 bg-blue-600 text-white rounded-xl text-sm font-bold shadow-lg hover:bg-blue-700 transition-colors"
+                            >
+                                保存
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Bottom Action Bar - Optimized with Auto-save Status */}
+            <div className="px-4 py-3 bg-white border-t border-gray-100 shadow-[0_-4px_10px_rgba(0,0,0,0.05)] z-30 absolute bottom-0 left-0 right-0 pb-6 flex items-center justify-between">
+                 <div className="flex items-center text-[10px] text-gray-400">
+                    <div className="w-1.5 h-1.5 bg-green-400 rounded-full mr-1.5 animate-pulse"></div>
+                    实时暂存 {currentTime}
+                 </div>
+                 <button 
+                    onClick={() => {
+                        setIsSubmitModalOpen(true);
+                    }}
+                    className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-bold shadow-md shadow-blue-200 active:scale-95 transition-transform flex items-center justify-center"
+                >
+                    <Send size={16} className="mr-2" /> 发送给员工确认
+                </button>
+            </div>
+        </div>
+      );
+  };
+
+  const renderConfirm = () => {
+      if (!selectedSession) return null;
+      const template = MOCK_TEMPLATES.find(t => t.id === selectedSession.templateId) || MOCK_TEMPLATES[0];
+      const assessmentDetail = MOCK_ASSESSMENT_DETAILS[selectedSession.employeeId] || MOCK_ASSESSMENT_DETAILS['default'];
+
+      return (
+        <div className="flex-1 bg-gray-50 flex flex-col overflow-hidden animate-in slide-in-from-right duration-300 relative z-20">
+            {/* Header */}
+            <div className="bg-white px-4 pt-12 pb-3 flex items-center shadow-sm shrink-0 z-10 border-b border-gray-100">
+                <ChevronLeft size={24} className="text-gray-600 cursor-pointer mr-2" onClick={() => setWorkbenchView('interviewList')} />
+                <span className="text-base font-bold text-gray-800">结果确认</span>
+            </div>
+
+            {/* Employee Info Card - Collapsible */}
+            <div className={`bg-white px-4 shrink-0 transition-all duration-300 ease-in-out overflow-hidden ${isHeaderCollapsed ? 'pt-2 pb-0 h-14' : 'pt-4 pb-2 h-auto'}`}>
+                {isHeaderCollapsed ? (
+                    <div className="flex items-center justify-between py-2 animate-in fade-in slide-in-from-top-2 duration-300">
+                        <div className="flex items-center">
+                            <div className="w-8 h-8 rounded-full bg-purple-50 text-purple-600 flex items-center justify-center font-bold text-xs mr-2 border border-purple-100">
+                                {selectedSession.employeeName.charAt(0)}
+                            </div>
+                            <span className="text-sm font-bold text-gray-900 mr-2">{selectedSession.employeeName}</span>
+                            <span className="text-xs text-gray-400">{selectedSession.period}</span>
+                        </div>
+                        <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded scale-90 origin-right">待确认</span>
+                    </div>
+                ) : (
+                    <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 animate-in fade-in zoom-in-95 duration-300">
+                        <div className="flex justify-between items-center mb-2">
+                            <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded">待确认</span>
+                            <span className="text-xs font-bold text-gray-400">{new Date().toISOString().split('T')[0]}</span>
+                        </div>
+                        <div className="flex items-center">
+                            <div className="w-10 h-10 rounded-full bg-purple-50 text-purple-600 flex items-center justify-center font-bold text-sm mr-3 border border-purple-100">
+                                {selectedSession.employeeName.charAt(0)}
+                            </div>
+                            <div>
+                                <div className="text-sm font-bold text-gray-900">{selectedSession.employeeName}</div>
+                                <div className="text-xs text-gray-500 mt-0.5">{selectedSession.period}</div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+            </div>
+
+            {/* Tabs */}
+            <div className="bg-white px-4 border-b border-gray-100 flex space-x-6 sticky top-0 z-10 shadow-sm">
+                <button 
+                    onClick={() => setConfirmTab('summary')}
+                    className={`pb-3 pt-3 text-sm font-medium border-b-2 transition-colors ${confirmTab === 'summary' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500'}`}
+                >
+                    智能纪要
+                </button>
+                <button 
+                    onClick={() => setConfirmTab('form')}
+                    className={`pb-3 pt-3 text-sm font-medium border-b-2 transition-colors ${confirmTab === 'form' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500'}`}
+                >
+                    绩效面谈表
+                </button>
+                <button 
+                    onClick={() => setConfirmTab('analysis')}
+                    className={`pb-3 pt-3 text-sm font-medium border-b-2 transition-colors ${confirmTab === 'analysis' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500'}`}
+                >
+                    考核总结分析
+                </button>
+            </div>
+
+            <div 
+                className="flex-1 overflow-y-auto p-4 custom-scrollbar pb-24"
+                onScroll={(e) => setIsHeaderCollapsed(e.currentTarget.scrollTop > 20)}
+            >
+                {confirmTab === 'summary' && (
+                    <div className="space-y-4 animate-in fade-in">
+                        <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
+                            <div className="flex items-center mb-4">
+                                <div className="p-1.5 bg-purple-100 text-purple-600 rounded-lg mr-2">
+                                    <Sparkles size={16} />
+                                </div>
+                                <h3 className="text-sm font-bold text-gray-900">AI 智能面谈纪要</h3>
+                            </div>
+                            <div className="text-xs text-gray-600 leading-relaxed space-y-3">
+                                <p>本次绩效面谈于 {selectedSession.date} 进行，整体氛围积极建设性。核心讨论点如下：</p>
+                                <div className="bg-blue-50/50 rounded-lg p-3 border border-blue-100">
+                                    <h4 className="font-bold text-blue-900 mb-2 flex items-center"><CheckCircle2 size={12} className="mr-1"/> 达成共识事项</h4>
+                                    <ul className="list-disc list-inside space-y-1 text-blue-800/80">
+                                        <li>确认 Q4 绩效等级为 A，核心项目 A10 表现优异获得认可。</li>
+                                        <li>针对“跨部门协作”中的认知偏差达成了一致改进方案。</li>
+                                        <li>下个周期的重点将向“新产品孵化”倾斜，权重调整为 40%。</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {confirmTab === 'form' && (
+                    <div className="space-y-4 animate-in fade-in">
+                        {template.sections.map((section) => (
+                            <div key={section.id} className="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
+                                <div className="flex items-center mb-3">
+                                    <div className="w-1 h-3 bg-blue-500 rounded-full mr-2"></div>
+                                    <h4 className="font-bold text-sm text-gray-800">{section.title}</h4>
+                                </div>
                                 <div className="space-y-4">
                                     {section.fields.map(field => (
                                         <div key={field.id}>
-                                            <label className="block text-xs font-bold text-gray-500 mb-2">
-                                                {field.label} {field.required && <span className="text-red-500">*</span>}
+                                            <label className="block text-xs font-bold text-gray-500 mb-1">
+                                                {field.label}
                                             </label>
-                                            {field.type === 'textarea' ? (
-                                                <textarea 
-                                                    className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2.5 text-sm text-gray-800 outline-none focus:border-blue-500 transition-colors h-24 resize-none"
-                                                    placeholder={field.placeholder || "请输入..."}
-                                                ></textarea>
-                                            ) : field.type === 'rating' ? (
-                                                <div className="flex space-x-2">
-                                                    {[1,2,3,4,5].map(i => (
-                                                        <Star key={i} size={24} className="text-gray-300 hover:text-yellow-400 cursor-pointer fill-gray-100" />
-                                                    ))}
-                                                </div>
-                                            ) : (
-                                                <input 
-                                                    type="text" 
-                                                    className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2.5 text-sm text-gray-800 outline-none focus:border-blue-500 transition-colors"
-                                                    placeholder={field.placeholder}
-                                                />
-                                            )}
+                                            <div className="text-xs text-gray-800 bg-gray-50 p-3 rounded-lg border border-gray-100 min-h-[60px]">
+                                                {selectedSession.content?.[field.id] || '[面谈官未填写]'}
+                                            </div>
                                         </div>
                                     ))}
                                 </div>
@@ -717,121 +1164,154 @@ const MobileApp: React.FC<MobileAppProps> = ({ sessions, onClose }) => {
                     </div>
                 )}
 
-                {feedbackTab === 'analysis' && (
+                {confirmTab === 'analysis' && (
                     <div className="space-y-4 animate-in fade-in">
-                        {/* Overall Score Card */}
-                        <div className="bg-white rounded-xl p-5 border border-gray-200 shadow-sm">
-                            <div className="flex justify-between items-start mb-4 border-b border-gray-50 pb-4">
-                                <div>
-                                    <div className="text-xs text-gray-500 mb-1">综合评分</div>
-                                    <div className="flex items-baseline">
-                                        <span className="text-3xl font-bold text-gray-900">{analysisData.score}</span>
-                                        <span className="ml-2 text-xs font-bold text-green-600 bg-green-50 px-2 py-0.5 rounded border border-green-100">等级 {analysisData.grade}</span>
-                                    </div>
-                                </div>
-                                <div className="text-right">
-                                    <div className="text-xs text-gray-500 mb-1">整体目标达成率</div>
-                                    <div className="text-lg font-bold text-blue-600">{analysisData.achievement}</div>
-                                </div>
-                            </div>
-
-                            <div className="space-y-4">
-                                <div className="flex items-center text-xs font-bold text-blue-600">
-                                    <Target size={14} className="mr-1.5" /> 本周期重点
-                                </div>
-
-                                {/* Conflict Card */}
-                                {analysisData.conflicts.map(item => (
-                                    <div key={item.id} className="bg-purple-50 border border-purple-100 rounded-xl p-3 relative">
-                                        <div className="flex justify-between items-start mb-2">
-                                            {renderTag('conflict', item.tag, 0)} 
-                                        </div>
-                                        <h4 className="font-bold text-xs text-purple-900 mb-2">{item.title}</h4>
-                                        <div className="flex justify-between text-[10px] text-gray-600 mb-2 bg-white/60 p-1.5 rounded">
-                                            <span>自评: <span className="font-bold text-gray-800">{item.self}</span></span>
-                                            <span>他评: <span className="font-bold text-gray-800">{item.manager}</span></span>
-                                        </div>
-                                        <p className="text-[10px] text-gray-500 italic mb-2 leading-relaxed">
-                                            {item.quote}
-                                        </p>
-                                        <button className="flex items-center justify-center w-full py-1.5 bg-white border border-purple-100 rounded text-[10px] font-medium text-purple-600 hover:bg-purple-50">
-                                            <Eye size={10} className="mr-1.5" /> 查看冲突对比
-                                        </button>
-                                    </div>
-                                ))}
-
-                                {/* Improvement Card */}
-                                {analysisData.improvements.map(item => (
-                                    <div key={item.id} className="bg-orange-50 border border-orange-100 rounded-xl p-3">
-                                        <div className="flex justify-between items-start mb-2">
-                                            {renderTag('improvement', item.tag)}
-                                        </div>
-                                        <h4 className="font-bold text-xs text-orange-900 mb-2">{item.title}</h4>
-                                        <div className="flex justify-between text-[10px] text-gray-600 bg-white/60 p-1.5 rounded">
-                                            <span>自评: <span className="font-bold text-gray-800">{item.self}</span></span>
-                                            <span>他评: <span className="font-bold text-gray-800">{item.manager}</span></span>
-                                        </div>
-                                    </div>
-                                ))}
-
-                                {/* Highlight Card */}
-                                {analysisData.highlights.map(item => (
-                                    <div key={item.id} className="bg-green-50 border border-green-100 rounded-xl p-3">
-                                        <div className="flex justify-between items-start mb-2">
-                                            {renderTag('highlight', item.tag)}
-                                        </div>
-                                        <h4 className="font-bold text-xs text-green-900 mb-2">{item.title}</h4>
-                                        <div className="flex justify-between text-[10px] text-gray-600 bg-white/60 p-1.5 rounded">
-                                            <span>自评: <span className="font-bold text-gray-800">{item.self}</span></span>
-                                            <span>他评: <span className="font-bold text-gray-800">{item.manager}</span></span>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-
-                            {/* AI Summary */}
-                            <div className="mt-4 bg-gray-50 border border-gray-100 rounded-lg p-3 text-xs leading-relaxed text-gray-600">
-                                <div className="flex items-center font-bold text-gray-800 mb-1">
-                                    <Sparkles size={12} className="mr-1.5 text-purple-500" /> AI 总结：
-                                </div>
-                                整体表现稳健，执行力与协作力表现突出。主要矛盾集中在KPI认定规则的理解上，建议面谈时优先解决。
-                            </div>
-                        </div>
-
-                        {/* History Trend */}
-                        <div className="bg-white rounded-xl p-4 border border-gray-200 shadow-sm">
-                            <div className="flex items-center text-xs font-bold text-gray-800 mb-4">
-                                <Clock size={14} className="mr-1.5 text-blue-600" /> 历史趋势
-                            </div>
-                            <div className="h-24 w-full flex items-end justify-between px-2 text-[10px] text-gray-400">
-                                {[75, 78, 76, 78].map((val, i) => (
-                                    <div key={i} className="flex flex-col items-center group w-full">
-                                        <div className="relative w-full flex justify-center h-20 items-end">
-                                            <div className="w-1.5 bg-blue-100 rounded-t group-hover:bg-blue-300 transition-colors" style={{ height: `${val}%` }}></div>
-                                            <div className="absolute -top-6 bg-gray-800 text-white px-1.5 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity">{val}</div>
-                                        </div>
-                                        <div className="mt-2 border-t border-gray-100 w-full text-center pt-1">
-                                            Q{i+1}
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
+                        <PerformanceAnalysisSummary assessmentDetail={assessmentDetail} />
                     </div>
                 )}
             </div>
 
-            <div className="p-4 border-t border-gray-100 bg-white pb-8 absolute bottom-0 left-0 right-0 z-30 shadow-[0_-4px_10px_rgba(0,0,0,0.05)]">
+            {/* Bottom Action - Optimized */}
+            <div className="px-4 py-3 bg-white border-t border-gray-100 shadow-[0_-4px_10px_rgba(0,0,0,0.05)] z-30 absolute bottom-0 left-0 right-0 flex space-x-3 pb-6">
                 <button 
-                    onClick={() => {
-                        setIsSubmitModalOpen(true);
-                    }}
-                    className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-bold shadow-lg shadow-blue-200 transition-all active:scale-95 flex items-center justify-center"
+                    className="flex-1 py-2.5 bg-gray-100 text-gray-600 rounded-lg text-sm font-bold active:scale-95 transition-transform"
                 >
-                    <Send size={16} className="mr-2" /> 发送给员工确认
+                    退回修正
+                </button>
+                <button 
+                    onClick={() => setIsSignatureModalOpen(true)}
+                    className="flex-1 py-2.5 bg-blue-600 text-white rounded-lg text-sm font-bold shadow-md shadow-blue-200 active:scale-95 transition-transform flex items-center justify-center"
+                >
+                    <CheckCircle2 size={16} className="mr-1.5" /> 确认结果
                 </button>
             </div>
         </div>
+      );
+  };
+
+  const renderSignatureModal = () => {
+      if (!isSignatureModalOpen || !selectedSession) return null;
+
+      return (
+          <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in">
+              <div className="bg-white rounded-2xl w-full max-w-sm overflow-hidden shadow-2xl animate-in zoom-in-95 flex flex-col">
+                  <div className="px-5 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
+                      <h3 className="font-bold text-gray-900 text-lg flex items-center">
+                          <Edit3 size={18} className="mr-2 text-blue-600" />
+                          手写签名确认
+                      </h3>
+                      <button onClick={() => setIsSignatureModalOpen(false)} className="text-gray-400 hover:text-gray-600">
+                          <X size={20} />
+                      </button>
+                  </div>
+                  
+                  <div className="p-5 flex-1 flex flex-col">
+                      <div className="flex justify-between items-center mb-3">
+                          <span className="text-xs font-bold text-gray-700">签署人：{selectedSession.employeeName}</span>
+                          <button 
+                              onClick={() => {
+                                  const canvas = canvasRef.current;
+                                  if (canvas) {
+                                      const ctx = canvas.getContext('2d');
+                                      ctx?.clearRect(0, 0, canvas.width, canvas.height);
+                                      setHasSignature(false);
+                                  }
+                              }}
+                              className="text-xs text-gray-500 flex items-center"
+                          >
+                              <Minus size={12} className="mr-1" /> 清除重签
+                          </button>
+                      </div>
+                      
+                      <div className="bg-gray-50 border-2 border-dashed border-gray-200 rounded-xl overflow-hidden relative h-40 shrink-0">
+                          {!hasSignature && (
+                              <div className="absolute inset-0 flex items-center justify-center text-gray-300 pointer-events-none select-none">
+                                  <span className="text-sm font-medium tracking-widest">在此处手写签名</span>
+                              </div>
+                          )}
+                          <canvas
+                              ref={canvasRef}
+                              width={300}
+                              height={160}
+                              className="w-full h-full cursor-crosshair touch-none"
+                              onMouseDown={(e) => {
+                                  setIsDrawing(true);
+                                  const ctx = canvasRef.current?.getContext('2d');
+                                  if (ctx && canvasRef.current) {
+                                      const rect = canvasRef.current.getBoundingClientRect();
+                                      ctx.beginPath();
+                                      ctx.moveTo(e.clientX - rect.left, e.clientY - rect.top);
+                                  }
+                              }}
+                              onMouseMove={(e) => {
+                                  if (!isDrawing) return;
+                                  const ctx = canvasRef.current?.getContext('2d');
+                                  if (ctx && canvasRef.current) {
+                                      const rect = canvasRef.current.getBoundingClientRect();
+                                      ctx.lineTo(e.clientX - rect.left, e.clientY - rect.top);
+                                      ctx.stroke();
+                                      setHasSignature(true);
+                                  }
+                              }}
+                              onMouseUp={() => setIsDrawing(false)}
+                              onMouseLeave={() => setIsDrawing(false)}
+                              onTouchStart={(e) => {
+                                  setIsDrawing(true);
+                                  const ctx = canvasRef.current?.getContext('2d');
+                                  if (ctx && canvasRef.current) {
+                                      const rect = canvasRef.current.getBoundingClientRect();
+                                      const touch = e.touches[0];
+                                      ctx.beginPath();
+                                      ctx.moveTo(touch.clientX - rect.left, touch.clientY - rect.top);
+                                  }
+                              }}
+                              onTouchMove={(e) => {
+                                  if (!isDrawing) return;
+                                  const ctx = canvasRef.current?.getContext('2d');
+                                  if (ctx && canvasRef.current) {
+                                      const rect = canvasRef.current.getBoundingClientRect();
+                                      const touch = e.touches[0];
+                                      ctx.lineTo(touch.clientX - rect.left, touch.clientY - rect.top);
+                                      ctx.stroke();
+                                      setHasSignature(true);
+                                  }
+                              }}
+                              onTouchEnd={() => setIsDrawing(false)}
+                          />
+                      </div>
+                      
+                      <div className="mt-4 bg-blue-50/50 rounded-lg p-2.5 border border-blue-100 flex items-start">
+                          <Info size={14} className="text-blue-500 shrink-0 mt-0.5 mr-1.5" />
+                          <p className="text-[10px] text-blue-800/80 leading-relaxed">
+                              签署即视为本人确认并同意上述绩效面谈结果。法律效力等同于纸质签名。
+                          </p>
+                      </div>
+                  </div>
+
+                  <div className="px-5 py-4 border-t border-gray-100 flex space-x-3 bg-gray-50">
+                      <button 
+                          onClick={() => setIsSignatureModalOpen(false)}
+                          className="flex-1 py-2.5 bg-white border border-gray-200 text-gray-600 rounded-xl text-sm font-medium hover:bg-gray-50 transition-colors"
+                      >
+                          取消
+                      </button>
+                      <button 
+                          disabled={!hasSignature}
+                          onClick={() => {
+                              setIsSignatureModalOpen(false);
+                              alert("签名已提交，面谈完成！");
+                              setWorkbenchView('interviewList');
+                              setInterviewListTab('done');
+                          }}
+                          className={`flex-1 py-2.5 rounded-xl text-sm font-bold shadow-lg transition-colors flex items-center justify-center ${
+                              hasSignature ? 'bg-blue-600 text-white hover:bg-blue-700 shadow-blue-200' : 'bg-gray-200 text-gray-400 cursor-not-allowed shadow-none'
+                          }`}
+                      >
+                          确认签署
+                      </button>
+                  </div>
+              </div>
+          </div>
       );
   };
 
@@ -1037,10 +1517,13 @@ const MobileApp: React.FC<MobileAppProps> = ({ sessions, onClose }) => {
                                     )}
                                     {interviewListTab === 'confirm' && (
                                         <button 
-                                            className="col-span-2 flex items-center justify-center px-2 py-2 text-xs font-bold text-gray-500 bg-gray-100 rounded-lg cursor-not-allowed"
-                                            disabled
+                                            onClick={() => {
+                                                setSelectedSession(session);
+                                                setWorkbenchView('confirm');
+                                            }}
+                                            className="col-span-2 flex items-center justify-center px-2 py-2 text-xs font-bold text-white bg-blue-600 rounded-lg shadow-sm shadow-blue-200 active:scale-95 transition-transform"
                                         >
-                                            等待员工确认
+                                            <CheckCircle2 size={14} className="mr-1.5" /> 确认面谈结果
                                         </button>
                                     )}
                                 </div>
@@ -1075,6 +1558,8 @@ const MobileApp: React.FC<MobileAppProps> = ({ sessions, onClose }) => {
           return renderFeedback();
       } else if (workbenchView === 'prepare') {
           return renderPrepare();
+      } else if (workbenchView === 'confirm') {
+          return renderConfirm();
       }
       return null;
   };
@@ -1265,6 +1750,7 @@ const MobileApp: React.FC<MobileAppProps> = ({ sessions, onClose }) => {
             
             {/* Modal Layer */}
             {renderSubmitModal()}
+            {renderSignatureModal()}
 
             {/* Home Indicator */}
             <div className="absolute bottom-2 left-1/2 -translate-x-1/2 w-32 h-1 bg-gray-900 rounded-full z-30 pointer-events-none opacity-20"></div>

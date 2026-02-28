@@ -1,14 +1,16 @@
 
 import React from 'react';
-import { ChevronUp, FileText } from 'lucide-react';
+import { ChevronUp, FileText, Users, Activity } from 'lucide-react';
 import { AssessmentDetail } from '../types';
 
 interface AssessmentDetailTableProps {
   detail: AssessmentDetail;
   period: string;
+  onViewOthersScores?: () => void;
+  onViewActivityLog?: () => void;
 }
 
-const AssessmentDetailTable: React.FC<AssessmentDetailTableProps> = ({ detail, period }) => {
+const AssessmentDetailTable: React.FC<AssessmentDetailTableProps> = ({ detail, period, onViewOthersScores, onViewActivityLog }) => {
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden h-full flex flex-col">
       <div className="p-4 border-b border-gray-200 flex justify-between items-center bg-gray-50">
@@ -16,10 +18,23 @@ const AssessmentDetailTable: React.FC<AssessmentDetailTableProps> = ({ detail, p
               <div className="bg-blue-600 w-1 h-4 rounded-full"></div>
               <h3 className="font-bold text-gray-800">考核内容</h3>
           </div>
-          <div className="flex items-center space-x-2">
-              <span className="text-sm text-blue-600 font-medium cursor-pointer hover:underline">显示完整信息</span>
-              <div className="w-8 h-4 bg-blue-600 rounded-full relative cursor-pointer">
-                  <div className="absolute right-0.5 top-0.5 bg-white w-3 h-3 rounded-full shadow-sm"></div>
+          <div className="flex items-center space-x-4">
+              {onViewOthersScores && (
+                  <button onClick={onViewOthersScores} className="flex items-center text-sm text-gray-600 hover:text-blue-600 transition-colors font-medium">
+                      <Users size={14} className="mr-1.5" /> 查看他人评分
+                  </button>
+              )}
+              {onViewActivityLog && (
+                  <button onClick={onViewActivityLog} className="flex items-center text-sm text-gray-600 hover:text-blue-600 transition-colors font-medium">
+                      <Activity size={14} className="mr-1.5" /> 查看活动日志
+                  </button>
+              )}
+              <div className="h-4 w-px bg-gray-300 mx-2"></div>
+              <div className="flex items-center space-x-2">
+                  <span className="text-sm text-blue-600 font-medium cursor-pointer hover:underline">显示完整信息</span>
+                  <div className="w-8 h-4 bg-blue-600 rounded-full relative cursor-pointer">
+                      <div className="absolute right-0.5 top-0.5 bg-white w-3 h-3 rounded-full shadow-sm"></div>
+                  </div>
               </div>
           </div>
       </div>
