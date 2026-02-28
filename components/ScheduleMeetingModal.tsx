@@ -130,6 +130,7 @@ const ScheduleMeetingModal: React.FC<ScheduleMeetingModalProps> = ({ isOpen, onC
                             <input 
                                 type="text" 
                                 value={`${date} ${time}`}
+                                readOnly
                                 className="w-full pl-3 pr-8 py-2.5 bg-white rounded-lg text-sm font-medium text-gray-700 shadow-sm focus:ring-2 focus:ring-purple-500 outline-none" 
                             />
                              <Clock className="absolute right-3 top-3 text-gray-400" size={16} />

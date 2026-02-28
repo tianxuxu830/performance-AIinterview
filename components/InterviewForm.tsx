@@ -14,6 +14,7 @@ import {
 import { InterviewSession, Status, TemplateField, InterviewType, HistoricalRecord } from '../types';
 import { MOCK_TEMPLATES, MOCK_ASSESSMENT_DETAILS, MOCK_EMPLOYEES, MOCK_AI_OUTLINE, ExtendedAssessmentDetail, MOCK_HISTORY_RECORDS, MOCK_PERFORMANCE_TRENDS } from '../constants';
 import AssessmentDetailTable from './AssessmentDetailTable';
+import PerformanceAnalysisSummary from './PerformanceAnalysisSummary';
 
 interface InterviewFormProps {
   session: InterviewSession;
@@ -93,6 +94,9 @@ const InterviewForm: React.FC<InterviewFormProps> = ({ session, onBack, onStart,
   
   // Analysis Panel State
   const [selectedPeriod, setSelectedPeriod] = useState(session.period || '2025 Q4');
+  const [analysisView, setAnalysisView] = useState<'summary' | 'details'>('summary');
+  const [selectedHistoryRecord, setSelectedHistoryRecord] = useState<HistoricalRecord | null>(null);
+  const [selectedIndicator, setSelectedIndicator] = useState<any>(null);
   
   // Modal State
   const [conflictModalOpen, setConflictModalOpen] = useState(false);
@@ -301,89 +305,7 @@ const InterviewForm: React.FC<InterviewFormProps> = ({ session, onBack, onStart,
   // --- Component Renders ---
 
   // Helper function to render items in Focus Area as "Notes"
-  const renderFocusNote = (item: any, type: 'controversy' | 'improvement' | 'highlight') => {
-    let config = {
-        bgColor: 'bg-purple-50',
-        borderColor: 'border-purple-200',
-        textColor: 'text-purple-900',
-        iconColor: 'text-purple-600',
-        badgeBg: 'bg-purple-100',
-        badgeText: '重点沟通',
-        icon: AlertTriangle,
-        actionLabel: '查看冲突对比',
-        onClick: () => {
-            setActiveConflictItem(item);
-            setConflictModalOpen(true);
-        }
-    };
-
-    if (type === 'improvement') {
-        config = {
-            bgColor: 'bg-orange-50',
-            borderColor: 'border-orange-200',
-            textColor: 'text-orange-900',
-            iconColor: 'text-orange-600',
-            badgeBg: 'bg-orange-100',
-            badgeText: '待改进',
-            icon: TrendingUp,
-            actionLabel: '',
-            onClick: () => {}
-        };
-    } else if (type === 'highlight') {
-        config = {
-            bgColor: 'bg-green-50',
-            borderColor: 'border-green-200',
-            textColor: 'text-green-900',
-            iconColor: 'text-green-600',
-            badgeBg: 'bg-green-100',
-            badgeText: '业绩亮点',
-            icon: ThumbsUp,
-            actionLabel: '',
-            onClick: () => {}
-        };
-    }
-
-    return (
-        <div key={item.id} className={`rounded-xl border p-3 flex flex-col ${config.bgColor} ${config.borderColor} shadow-sm relative overflow-hidden transition-all hover:shadow-md h-full`}>
-            {/* Top Badge */}
-            <div className="flex justify-between items-start mb-2">
-                <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold ${config.badgeBg} ${config.textColor}`}>
-                    <config.icon size={10} className={`mr-1 ${config.iconColor}`} /> {config.badgeText}
-                </span>
-                {type === 'controversy' && (
-                    <span className="text-[10px] font-bold text-red-500 bg-white/80 px-1.5 py-0.5 rounded shadow-sm border border-red-100">
-                        分差 {Math.abs(item.selfScore - item.managerScore)}
-                    </span>
-                )}
-            </div>
-            
-            {/* Content */}
-            <div className="flex-1 mb-2">
-                <h5 className={`font-bold text-xs ${config.textColor} mb-1 line-clamp-1`} title={item.name}>{item.name}</h5>
-                <div className="text-[10px] text-gray-600 space-y-0.5">
-                    <div className="flex justify-between">
-                        <span>自评: <span className="font-medium">{item.selfScore}</span></span>
-                        <span>他评: <span className="font-medium">{item.managerScore}</span></span>
-                    </div>
-                    {item.description && (
-                        <p className="line-clamp-2 opacity-80 mt-1 italic leading-tight">"{item.description}"</p>
-                    )}
-                </div>
-            </div>
-
-            {/* Action Footer (Only for controversy for now) */}
-            {config.actionLabel && (
-                <button 
-                    onClick={config.onClick}
-                    className={`mt-auto text-[10px] font-bold ${config.iconColor} flex items-center hover:underline bg-white/60 p-1 rounded justify-center transition-colors hover:bg-white`}
-                >
-                    <Eye size={10} className="mr-1" />
-                    {config.actionLabel}
-                </button>
-            )}
-        </div>
-    );
-  };
+  // Removed renderFocusNote as it is now handled by PerformanceAnalysisSummary component
 
   const renderConflictModal = () => {
       // ... (No changes needed here)
@@ -628,19 +550,6 @@ const InterviewForm: React.FC<InterviewFormProps> = ({ session, onBack, onStart,
                      <Video size={16} className="mr-2" /> 进入会议
                  </button>
              )}
-             {(isCompleted || isDirect || isPendingConfirmation) && (
-                 <>
-                    <button className="p-2 text-gray-500 hover:bg-gray-100 rounded-full transition-colors" title="导出">
-                        <Download size={18} />
-                    </button>
-                    <button className="p-2 text-gray-500 hover:bg-gray-100 rounded-full transition-colors" title="分享">
-                        <Share2 size={18} />
-                    </button>
-                 </>
-             )}
-             <button className="p-2 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100">
-                 <MoreHorizontal size={20} />
-             </button>
         </div>
       </div>
   );
@@ -678,103 +587,141 @@ const InterviewForm: React.FC<InterviewFormProps> = ({ session, onBack, onStart,
             </div>
             
             <div className="flex space-x-6 text-xs font-medium text-gray-500">
-                <button onClick={() => scrollToSection(overviewRef)} className="hover:text-blue-600 transition-colors">综合分析</button>
-                <button onClick={() => scrollToSection(historyRef)} className="hover:text-blue-600 transition-colors">历史趋势</button>
+                <button 
+                    onClick={() => setAnalysisView('summary')} 
+                    className={`pb-2 border-b-2 transition-colors ${analysisView === 'summary' ? 'border-blue-600 text-blue-600 font-bold' : 'border-transparent hover:text-blue-600'}`}
+                >
+                    总结概览
+                </button>
+                <button 
+                    onClick={() => setAnalysisView('details')} 
+                    className={`pb-2 border-b-2 transition-colors ${analysisView === 'details' ? 'border-blue-600 text-blue-600 font-bold' : 'border-transparent hover:text-blue-600'}`}
+                >
+                    考核表明细
+                </button>
             </div>
         </div>
 
         <div className="flex-1 overflow-y-auto custom-scrollbar bg-gray-50/30 p-6 space-y-8">
-            <div ref={overviewRef} className="scroll-mt-4">
-                <div className="flex items-center justify-between mb-3">
-                    <h4 className="text-sm font-bold text-gray-900 flex items-center">
-                        <Activity size={16} className="mr-2 text-blue-600" /> 综合分析
-                    </h4>
-                    <button onClick={() => setIsDrawerOpen(true)} className="text-xs text-blue-600 hover:underline">查看详情</button>
-                </div>
-                
-                <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-[0_2px_8px_rgba(0,0,0,0.04)]">
-                    <div className="flex items-end justify-between border-b border-gray-100 pb-4 mb-4">
-                        <div>
-                            <div className="text-xs text-gray-500 mb-1">综合评分</div>
-                            <div className="flex items-baseline">
-                                <span className="text-3xl font-bold text-gray-900 tracking-tight">88.5</span>
-                                <span className="ml-2 text-xs font-bold text-green-600 bg-green-50 px-2 py-0.5 rounded border border-green-100">等级 A</span>
+            {analysisView === 'summary' ? (
+                <>
+                    <div ref={overviewRef} className="scroll-mt-4">
+                        <div className="flex items-center justify-between mb-3">
+                            <h4 className="text-sm font-bold text-gray-900 flex items-center">
+                                <Activity size={16} className="mr-2 text-blue-600" /> 综合分析
+                            </h4>
+                        </div>
+                        
+                        <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-[0_2px_8px_rgba(0,0,0,0.04)]">
+                            <PerformanceAnalysisSummary assessmentDetail={assessmentDetail} onOpenIndicatorDetails={(indicator) => {
+                                setSelectedIndicator(indicator);
+                                setIsDrawerOpen(true);
+                            }} />
+                        </div>
+                    </div>
+
+                    <div ref={historyRef} className="scroll-mt-4 pb-10">
+                        <h4 className="text-sm font-bold text-gray-900 mb-3 flex items-center">
+                            <History size={16} className="mr-2 text-blue-600" /> 历史趋势
+                        </h4>
+                        <div className="bg-white border border-gray-200 rounded-xl p-4 shadow-[0_2px_8px_rgba(0,0,0,0.04)]">
+                            <div className="mb-4">
+                                {renderTrendChart()}
+                            </div>
+
+                            <div className="mt-6 pt-4 border-t border-gray-100">
+                                <div className="text-xs font-bold text-gray-500 mb-3 flex items-center justify-between">
+                                    <span>历史面谈记录</span>
+                                    <span className="bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded text-[10px]">{historyRecords.length}</span>
+                                </div>
+                                <div className="space-y-3">
+                                    {historyRecords.map((record, index) => (
+                                        <div 
+                                            key={index} 
+                                            onClick={() => setSelectedHistoryRecord(record)}
+                                            className="flex flex-col bg-gray-50 p-3 rounded-lg border border-gray-100 relative hover:shadow-sm hover:border-blue-200 hover:bg-blue-50/30 transition-all cursor-pointer group"
+                                        >
+                                            <div className="flex justify-between items-start mb-1">
+                                                <span className="font-bold text-gray-800 text-xs group-hover:text-blue-700 transition-colors">{record.type}</span>
+                                                <span className="text-[10px] text-gray-400">{record.date}</span>
+                                            </div>
+                                            <div className="text-[10px] text-gray-500 mb-2">面谈官: {record.manager}</div>
+                                            <p className="text-xs text-gray-600 line-clamp-2 leading-relaxed">
+                                                {record.summary}
+                                            </p>
+                                        </div>
+                                    ))}
+                                    {historyRecords.length === 0 && (
+                                        <div className="text-center text-xs text-gray-400 py-2">暂无历史记录</div>
+                                    )}
+                                </div>
                             </div>
                         </div>
-                        <div className="text-right">
-                            <div className="text-xs text-gray-500 mb-1">整体目标达成率</div>
-                            <div className="text-sm font-bold text-blue-600">95%</div>
-                        </div>
                     </div>
-
-                    <div>
-                        <div className="text-xs font-bold text-gray-700 mb-3 flex items-center">
-                            <Target size={14} className="mr-1.5 text-blue-500"/> 本周期重点
-                        </div>
-                        <div className="grid grid-cols-2 gap-3">
-                            {assessmentDetail.controversies.map(item => renderFocusNote(item, 'controversy'))}
-                            {assessmentDetail.improvements.map(item => renderFocusNote(item, 'improvement'))}
-                            {assessmentDetail.highlights.map(item => renderFocusNote(item, 'highlight'))}
-                        </div>
-
-                        <p className="mt-4 text-xs text-gray-500 leading-relaxed bg-gray-50 p-2.5 rounded border border-gray-100">
-                            <span className="font-bold text-gray-700 flex items-center mb-1">
-                                <Wand2 size={10} className="mr-1 text-purple-500" /> AI 总结：
-                            </span>
-                            整体表现稳健，执行力与协作力表现突出。主要矛盾集中在KPI认定规则的理解上，建议面谈时优先解决。
-                        </p>
-                    </div>
+                </>
+            ) : (
+                <div className="bg-white rounded-xl border border-gray-200 shadow-[0_2px_8px_rgba(0,0,0,0.04)] overflow-hidden">
+                    <AssessmentDetailTable detail={assessmentDetail} period={selectedPeriod} />
                 </div>
-            </div>
-
-            <div ref={historyRef} className="scroll-mt-4 pb-10">
-                <h4 className="text-sm font-bold text-gray-900 mb-3 flex items-center">
-                    <History size={16} className="mr-2 text-blue-600" /> 历史趋势
-                </h4>
-                <div className="bg-white border border-gray-200 rounded-xl p-4 shadow-[0_2px_8px_rgba(0,0,0,0.04)]">
-                    <div className="mb-4">
-                        {renderTrendChart()}
-                    </div>
-                    <div className="space-y-2 mt-4 pt-4 border-t border-gray-100">
-                        <div className="text-xs font-bold text-gray-500 mb-2">历史遗留问题追踪</div>
-                        <div className="flex items-start text-xs">
-                            <CheckCircle2 size={12} className="text-green-500 mt-0.5 mr-2 shrink-0" />
-                            <span className="text-gray-400 line-through">跨部门沟通响应慢 (2025 Q2)</span>
-                        </div>
-                        <div className="flex items-start text-xs">
-                            <AlertCircle size={12} className="text-orange-500 mt-0.5 mr-2 shrink-0" />
-                            <span className="text-gray-700">文档沉淀不足 (2025 Q1) - <span className="text-orange-600">本期仍未改善</span></span>
-                        </div>
-                    </div>
-
-                    <div className="mt-6 pt-4 border-t border-gray-100">
-                        <div className="text-xs font-bold text-gray-500 mb-3 flex items-center justify-between">
-                            <span>历史面谈记录</span>
-                            <span className="bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded text-[10px]">{historyRecords.length}</span>
-                        </div>
-                        <div className="space-y-3">
-                            {historyRecords.map((record, index) => (
-                                <div key={index} className="flex flex-col bg-gray-50 p-3 rounded-lg border border-gray-100 relative hover:shadow-sm transition-shadow">
-                                    <div className="flex justify-between items-start mb-1">
-                                        <span className="font-bold text-gray-800 text-xs">{record.type}</span>
-                                        <span className="text-[10px] text-gray-400">{record.date}</span>
-                                    </div>
-                                    <div className="text-[10px] text-gray-500 mb-2">面谈官: {record.manager}</div>
-                                    <p className="text-xs text-gray-600 line-clamp-2 leading-relaxed">
-                                        {record.summary}
-                                    </p>
-                                </div>
-                            ))}
-                            {historyRecords.length === 0 && (
-                                <div className="text-center text-xs text-gray-400 py-2">暂无历史记录</div>
-                            )}
-                        </div>
-                    </div>
-                </div>
-            </div>
+            )}
         </div>
         
         {renderConflictModal()}
+
+        {/* History Record Detail Modal */}
+        {selectedHistoryRecord && (
+            <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in">
+                <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[80vh] flex flex-col overflow-hidden">
+                    <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+                        <h3 className="text-base font-bold text-gray-900 flex items-center">
+                            <History size={18} className="text-blue-600 mr-2" />
+                            {selectedHistoryRecord.type} - 面谈反馈记录
+                        </h3>
+                        <button onClick={() => setSelectedHistoryRecord(null)} className="p-1.5 hover:bg-gray-200 rounded-full text-gray-500 transition-colors">
+                            <X size={18} />
+                        </button>
+                    </div>
+                    <div className="p-6 overflow-y-auto custom-scrollbar">
+                        <div className="grid grid-cols-2 gap-4 mb-6">
+                            <div className="bg-gray-50 p-3 rounded-lg border border-gray-100">
+                                <div className="text-[10px] text-gray-500 mb-1">面谈日期</div>
+                                <div className="text-sm font-bold text-gray-800">{selectedHistoryRecord.date}</div>
+                            </div>
+                            <div className="bg-gray-50 p-3 rounded-lg border border-gray-100">
+                                <div className="text-[10px] text-gray-500 mb-1">面谈官</div>
+                                <div className="text-sm font-bold text-gray-800">{selectedHistoryRecord.manager}</div>
+                            </div>
+                        </div>
+                        <div className="space-y-4">
+                            <div>
+                                <h4 className="text-xs font-bold text-gray-700 mb-2 border-l-2 border-blue-500 pl-2">面谈纪要</h4>
+                                <div className="text-sm text-gray-600 bg-blue-50/30 p-4 rounded-xl border border-blue-100/50 leading-relaxed whitespace-pre-wrap">
+                                    {selectedHistoryRecord.summary}
+                                </div>
+                            </div>
+                            <div>
+                                <h4 className="text-xs font-bold text-gray-700 mb-2 border-l-2 border-green-500 pl-2">后续行动计划</h4>
+                                <div className="text-sm text-gray-600 bg-green-50/30 p-4 rounded-xl border border-green-100/50 leading-relaxed">
+                                    <ul className="list-disc list-inside space-y-1">
+                                        <li>跟进核心项目进度，确保按期交付。</li>
+                                        <li>加强跨部门沟通，每周同步一次进展。</li>
+                                        <li>参加下个月的领导力培训课程。</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div className="px-6 py-4 border-t border-gray-100 bg-gray-50 flex justify-end">
+                        <button 
+                            onClick={() => setSelectedHistoryRecord(null)}
+                            className="px-5 py-2 bg-white border border-gray-200 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-50 transition-colors"
+                        >
+                            关闭
+                        </button>
+                    </div>
+                </div>
+            </div>
+        )}
     </div>
   );
 
@@ -1049,18 +996,82 @@ const InterviewForm: React.FC<InterviewFormProps> = ({ session, onBack, onStart,
       {/* Drawer Overlay */}
       {isDrawerOpen && (
           <div className="absolute inset-0 z-30 flex justify-end bg-black/20 backdrop-blur-[1px] transition-all">
-              <div className="w-[800px] bg-white h-full shadow-2xl flex flex-col animate-in slide-in-from-right duration-300">
+              <div className="w-[600px] bg-white h-full shadow-2xl flex flex-col animate-in slide-in-from-right duration-300">
                   <div className="flex items-center justify-between p-4 border-b border-gray-200 bg-gray-50">
                       <h3 className="font-bold text-gray-800 flex items-center">
-                          <FileText size={18} className="mr-2 text-blue-600" />
-                          绩效考核表详情
+                          <Activity size={18} className="mr-2 text-blue-600" />
+                          指标详情分析
                       </h3>
-                      <button onClick={() => setIsDrawerOpen(false)} className="p-1 rounded-full hover:bg-gray-200 text-gray-500">
+                      <button onClick={() => { setIsDrawerOpen(false); setSelectedIndicator(null); }} className="p-1 rounded-full hover:bg-gray-200 text-gray-500">
                           <X size={20} />
                       </button>
                   </div>
-                  <div className="flex-1 overflow-hidden p-0">
-                      <AssessmentDetailTable detail={assessmentDetail} period={session.period} />
+                  <div className="flex-1 overflow-y-auto p-6 bg-gray-50/50">
+                      {selectedIndicator ? (
+                          <div className="space-y-6">
+                              <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm">
+                                  <div className="flex justify-between items-start mb-4">
+                                      <div>
+                                          <h4 className="text-lg font-bold text-gray-900 mb-1">{selectedIndicator.name}</h4>
+                                          <span className="text-xs text-gray-500 font-medium bg-gray-100 px-2 py-1 rounded">权重 {selectedIndicator.weight}%</span>
+                                      </div>
+                                      <div className="text-right">
+                                          <div className="text-3xl font-bold text-blue-600">{selectedIndicator.scores.self}</div>
+                                          <div className="text-xs text-gray-400 mt-1">自评得分</div>
+                                      </div>
+                                  </div>
+                                  <div className="pt-4 border-t border-gray-100 grid grid-cols-4 gap-4 text-center">
+                                      <div>
+                                          <div className="text-xs text-gray-400 mb-1">主管评分</div>
+                                          <div className="text-lg font-bold text-gray-800">{selectedIndicator.scores.manager || '-'}</div>
+                                      </div>
+                                      <div>
+                                          <div className="text-xs text-gray-400 mb-1">矩阵评分</div>
+                                          <div className="text-lg font-bold text-gray-800">{selectedIndicator.scores.matrix || '-'}</div>
+                                      </div>
+                                      <div>
+                                          <div className="text-xs text-gray-400 mb-1">平级评分</div>
+                                          <div className="text-lg font-bold text-gray-800">{selectedIndicator.scores.peer || '-'}</div>
+                                      </div>
+                                      <div>
+                                          <div className="text-xs text-gray-400 mb-1">下级评分</div>
+                                          <div className="text-lg font-bold text-gray-800">{selectedIndicator.scores.sub || '-'}</div>
+                                      </div>
+                                  </div>
+                              </div>
+                              
+                              <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm">
+                                  <h5 className="text-sm font-bold text-gray-800 mb-4 flex items-center">
+                                      <MessageSquare size={16} className="mr-2 text-blue-500" /> 评价详情
+                                  </h5>
+                                  <div className="space-y-4">
+                                      {selectedIndicator.comments.self && selectedIndicator.comments.self !== '-' && (
+                                          <div className="bg-orange-50/50 rounded-lg p-4 border border-orange-100">
+                                              <div className="text-xs font-bold text-orange-800 mb-2">自评说明</div>
+                                              <div className="text-sm text-gray-700 leading-relaxed">{selectedIndicator.comments.self}</div>
+                                          </div>
+                                      )}
+                                      {selectedIndicator.comments.manager && selectedIndicator.comments.manager !== '-' && (
+                                          <div className="bg-blue-50/50 rounded-lg p-4 border border-blue-100">
+                                              <div className="text-xs font-bold text-blue-800 mb-2">主管评价</div>
+                                              <div className="text-sm text-gray-700 leading-relaxed">{selectedIndicator.comments.manager}</div>
+                                          </div>
+                                      )}
+                                      {selectedIndicator.comments.matrix && selectedIndicator.comments.matrix !== '-' && (
+                                          <div className="bg-purple-50/50 rounded-lg p-4 border border-purple-100">
+                                              <div className="text-xs font-bold text-purple-800 mb-2">矩阵评价</div>
+                                              <div className="text-sm text-gray-700 leading-relaxed">{selectedIndicator.comments.matrix}</div>
+                                          </div>
+                                      )}
+                                  </div>
+                              </div>
+                          </div>
+                      ) : (
+                          <div className="flex flex-col items-center justify-center h-full text-gray-400">
+                              <Activity size={48} className="mb-4 opacity-20" />
+                              <p>请选择一个指标查看详情</p>
+                          </div>
+                      )}
                   </div>
               </div>
           </div>

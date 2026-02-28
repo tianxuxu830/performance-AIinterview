@@ -348,6 +348,61 @@ export const MOCK_ASSESSMENT_DETAILS: Record<string, ExtendedAssessmentDetail> =
   '1': { 
     id: 'ad_1',
     description: '本年度的绩效考核分为两个部分：OKR（70%）和 KPI（30%）。',
+    performanceScore: 97.8,
+    performanceGrade: 'S',
+    performanceCoefficient: 1.5,
+    percentile: 33,
+    
+    dimensions: [
+        { id: 'd1', name: '工作业绩', score: 70, selfScore: 75, managerScore: 70, weight: 70, comparisonPrevious: '+3 (环比+4.48%)', comparisonAverage: '+15.83 (高于均分29.23%)', description: '该员工工作业绩得分70分，高于均分15.83分(29.23%)，表现优异。特别是近三个月持续提升，从57.4分提升至70分，显示良好的成长趋势。' },
+        { id: 'd2', name: '价值观', score: 27.8, selfScore: 28, managerScore: 27.8, weight: 30, comparisonPrevious: '+0.5 (环比+1.83%)', comparisonAverage: '+1.27 (高于均分4.79%)', description: '价值观得分27.8分，略高于均分1.27分(4.79%)，表现稳定。各月得分波动较小，维持在较高水平。' }
+    ],
+    
+    indicators: [
+        { id: 'ind1', name: '销售额', score: 100, comparisonPrevious: '+5.4 (环比+5.71%)', comparisonAverage: '+24.47 (高于均分32.39%)', description: '该指标表现极为突出，连续三个月持续提升，最终达到满分。对整体绩效贡献显著，占总分的56%。建议继续保持现有销售策略，同时总结经验形成可复制的销售方法论。', trend: 'up' },
+        { id: 'ind2', name: '有效建联客户数', score: 100, comparisonPrevious: '0 (环比0%)', comparisonAverage: '+15.27 (高于均分18.03%)', description: '表现优异，近两个月均达到满分。对客户资源积累和后续销售转化有重要支撑作用。建议继续保持高质量的客户沟通频率和方式。', trend: 'stable' },
+        { id: 'ind3', name: '诚信正直', score: 95.2, comparisonPrevious: '+2 (环比+2.15%)', comparisonAverage: '+5.43 (高于均分6.05%)', description: '保持稳定上升趋势，每月均有小幅提升。', trend: 'up' },
+        { id: 'ind4', name: '客户至上', score: 92.3, comparisonPrevious: '+1.4 (环比+1.54%)', comparisonAverage: '+5.73 (高于均分6.62%)', trend: 'up' },
+        { id: 'ind5', name: '团队协作', score: 90, comparisonPrevious: '+2.3 (环比+2.62%)', comparisonAverage: '+1.17 (高于均分1.32%)', trend: 'up' }
+    ],
+
+    scoreTrend: [
+        { period: '2025 Q1', score: 84.1, grade: 'B+' },
+        { period: '2025 Q2', score: 89.5, grade: 'A' },
+        { period: '2025 Q3', score: 94.2, grade: 'S' },
+        { period: '2025 Q4', score: 97.8, grade: 'S' }
+    ],
+    
+    coreIndicatorTrends: [
+        { 
+            name: '销售额', 
+            data: [
+                { period: '2025 Q1', score: 78.6, grade: '' },
+                { period: '2025 Q2', score: 88.2, grade: '' },
+                { period: '2025 Q3', score: 95.4, grade: '' },
+                { period: '2025 Q4', score: 100, grade: '' }
+            ]
+        },
+        { 
+            name: '有效建联客户数', 
+            data: [
+                { period: '2025 Q1', score: 92.0, grade: '' },
+                { period: '2025 Q2', score: 96.5, grade: '' },
+                { period: '2025 Q3', score: 100, grade: '' },
+                { period: '2025 Q4', score: 100, grade: '' }
+            ]
+        },
+        { 
+            name: '诚信正直', 
+            data: [
+                { period: '2025 Q1', score: 90.5, grade: '' },
+                { period: '2025 Q2', score: 92.1, grade: '' },
+                { period: '2025 Q3', score: 93.8, grade: '' },
+                { period: '2025 Q4', score: 95.2, grade: '' }
+            ]
+        }
+    ],
+
     highlights: [
         { id: 'h1', name: '提升品牌知名度 (OKR)', selfScore: 100, managerScore: 98, weight: 20 },
         { id: 'h2', name: '客户满意度 (KPI)', selfScore: 4.8, managerScore: 4.9, weight: 10, description: '客户反馈评分' }
@@ -391,6 +446,40 @@ export const MOCK_ASSESSMENT_DETAILS: Record<string, ExtendedAssessmentDetail> =
   'default': {
     id: 'ad_default',
     description: '常规绩效考核周期，重点考察业务产出与团队协作。',
+    performanceScore: 88.5,
+    performanceGrade: 'A',
+    performanceCoefficient: 1.2,
+    percentile: 65,
+    
+    dimensions: [
+        { id: 'd1', name: '工作业绩', score: 65, selfScore: 70, managerScore: 65, weight: 70, comparisonPrevious: '+2 (环比+3.1%)', comparisonAverage: '+5 (高于均分8%)' },
+        { id: 'd2', name: '价值观', score: 23.5, selfScore: 25, managerScore: 23.5, weight: 30, comparisonPrevious: '-0.5 (环比-2%)', comparisonAverage: '+1 (高于均分4%)' }
+    ],
+    
+    indicators: [
+        { id: 'ind1', name: '核心业务指标', score: 88, comparisonPrevious: '+3 (环比+3.5%)', comparisonAverage: '+8 (高于均分10%)', trend: 'up' },
+        { id: 'ind2', name: '团队协作', score: 90, comparisonPrevious: '0 (环比0%)', comparisonAverage: '+5 (高于均分5.8%)', trend: 'stable' }
+    ],
+
+    scoreTrend: [
+        { period: '2025 Q1', score: 75, grade: 'B' },
+        { period: '2025 Q2', score: 78, grade: 'B+' },
+        { period: '2025 Q3', score: 82, grade: 'A-' },
+        { period: '2025 Q4', score: 88.5, grade: 'A' }
+    ],
+    
+    coreIndicatorTrends: [
+        { 
+            name: '核心业务指标', 
+            data: [
+                { period: '2025 Q1', score: 70, grade: '' },
+                { period: '2025 Q2', score: 75, grade: '' },
+                { period: '2025 Q3', score: 82, grade: '' },
+                { period: '2025 Q4', score: 88, grade: '' }
+            ]
+        }
+    ],
+
     highlights: [
         { id: 'h1', name: '出勤率', selfScore: 100, managerScore: 100, weight: 10 }
     ],
@@ -471,3 +560,44 @@ export const MOCK_AI_OUTLINE = `
 # 建议总结
 *(此处将在面谈结束后自动生成总结...)*
 `;
+// --- Enhanced Mock Data for 5 Roles, 2 Projects, 10 Indicators ---
+export const MOCK_CONFLICT_DETAILS_ENHANCED = {
+    roles: [
+        { key: 'self', label: '自评', name: '陈飞', avatar: 'https://picsum.photos/id/338/50/50' },
+        { key: 'manager', label: '直属上级', name: '张伟', avatar: 'https://picsum.photos/id/1025/50/50' },
+        { key: 'matrix', label: '虚线主管', name: 'Lisa', avatar: 'https://picsum.photos/id/237/50/50' },
+        { key: 'peer', label: '互评同事', name: '王强', avatar: 'https://picsum.photos/id/12/50/50' },
+        { key: 'sub', label: '下属', name: '小赵', avatar: 'https://picsum.photos/id/64/50/50' }
+    ],
+    summary: {
+        self: { score: 98.5, comment: '本季度全力以赴，核心项目均按期交付，同时也承担了额外的团队培训工作。' },
+        manager: { score: 82.0, comment: '整体表现符合预期，但在跨部门协作的响应速度上收到了一些负面反馈，需改进。' },
+        matrix: { score: 85.5, comment: '专业能力很强，但在项目汇报的及时性上还有提升空间。' },
+        peer: { score: 88.0, comment: '技术过硬，乐于助人，但有时候沟通语气比较急躁。' },
+        sub: { score: 92.0, comment: '非常负责任的领导，给予了我们很多指导，希望能多一些授权。' }
+    },
+    projects: [
+        {
+            id: 'p1',
+            name: '项目一：Q4 核心业务攻坚',
+            indicators: [
+                { id: 'i1', name: '累计签单额达成率', weight: '20%', scores: { self: 100, manager: 80, matrix: 85, peer: 90, sub: 95 }, comments: { self: '超额完成120%', manager: '部分回款未到账，暂按80%计', matrix: '数据核实中', peer: '-', sub: '-' } },
+                { id: 'i2', name: '新客户开发数量', weight: '15%', scores: { self: 90, manager: 90, matrix: 88, peer: 85, sub: 90 }, comments: { self: '新增5家', manager: '新增5家，质量尚可', matrix: '符合预期', peer: '客户反馈不错', sub: '-' } },
+                { id: 'i3', name: '项目交付及时率', weight: '15%', scores: { self: 100, manager: 75, matrix: 70, peer: 80, sub: 85 }, comments: { self: '全部按时', manager: 'A项目延期3天', matrix: '影响了下游进度', peer: '配合略有延迟', sub: '我们就差一点点' } },
+                { id: 'i4', name: '代码/文档质量', weight: '10%', scores: { self: 95, manager: 90, matrix: 92, peer: 95, sub: 90 }, comments: { self: '零Bug上线', manager: '质量稳定', matrix: '文档规范', peer: '代码很漂亮', sub: '学习了很多' } },
+                { id: 'i5', name: '成本控制', weight: '10%', scores: { self: 85, manager: 85, matrix: 85, peer: 80, sub: 85 }, comments: { self: '预算内', manager: '控制得当', matrix: '无超支', peer: '-', sub: '-' } },
+            ]
+        },
+        {
+            id: 'p2',
+            name: '项目二：团队与价值观',
+            indicators: [
+                { id: 'i6', name: '团队协作响应度', weight: '10%', scores: { self: 100, manager: 70, matrix: 75, peer: 70, sub: 95 }, comments: { self: '随时待命', manager: '群消息回复慢', matrix: '找不到人', peer: '有时候很难联系', sub: '老大回我很快' } },
+                { id: 'i7', name: '知识分享与沉淀', weight: '5%', scores: { self: 80, manager: 85, matrix: 90, peer: 90, sub: 95 }, comments: { self: '组织了1次分享', manager: '分享质量很高', matrix: '对团队有帮助', peer: '干货满满', sub: '受益匪浅' } },
+                { id: 'i8', name: '人才培养', weight: '5%', scores: { self: 90, manager: 85, matrix: 80, peer: 85, sub: 90 }, comments: { self: '指导新人', manager: '投入了精力', matrix: '-', peer: '-', sub: '手把手教我' } },
+                { id: 'i9', name: '主动性与责任心', weight: '5%', scores: { self: 100, manager: 95, matrix: 95, peer: 90, sub: 100 }, comments: { self: '主动承担', manager: '值得信赖', matrix: '很靠谱', peer: '很拼', sub: '榜样' } },
+                { id: 'i10', name: '合规与安全', weight: '5%', scores: { self: 100, manager: 100, matrix: 100, peer: 100, sub: 100 }, comments: { self: '无违规', manager: '合规', matrix: '合规', peer: '合规', sub: '合规' } },
+            ]
+        }
+    ]
+};

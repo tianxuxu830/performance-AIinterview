@@ -4,10 +4,13 @@ import {
   Mic, Video, Share, Users, MessageSquare, 
   Layout, ChevronRight, Sparkles, FileText, 
   BookOpen, MoreHorizontal, Settings, CheckSquare, Square,
-  Zap, CheckCircle2, AlertCircle, BarChart, Activity, Target, ThumbsUp, TrendingUp, Wand2, AlertTriangle
+  Zap, CheckCircle2, AlertCircle, BarChart, Activity, Target, ThumbsUp, TrendingUp, Wand2, AlertTriangle,
+  ArrowUp, ArrowDown, Minus
 } from 'lucide-react';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { InterviewSession, DimensionItem } from '../types';
 import { MOCK_TEMPLATES, MOCK_ASSESSMENT_DETAILS } from '../constants';
+import PerformanceAnalysisSummary from './PerformanceAnalysisSummary';
 
 interface InterviewExecutionProps {
   session: InterviewSession;
@@ -239,51 +242,8 @@ const InterviewExecution: React.FC<InterviewExecutionProps> = ({ session, onEndM
                 )}
                 
                 {activeTab === 'analysis' && (
-                    <div className="p-5 h-full overflow-y-auto custom-scrollbar bg-gray-50/50">
-                        {/* Comprehensive Analysis Panel (Replaces Real-time Assistant & Simplified view) */}
-                        <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-[0_2px_8px_rgba(0,0,0,0.04)]">
-                            <div className="flex items-center justify-between mb-4">
-                                <h4 className="text-sm font-bold text-gray-900 flex items-center">
-                                    <Activity size={16} className="mr-2 text-blue-600" /> 综合分析
-                                </h4>
-                            </div>
-
-                            {/* Score Row */}
-                            <div className="flex items-end justify-between border-b border-gray-100 pb-4 mb-4">
-                                <div>
-                                    <div className="text-xs text-gray-500 mb-1">综合评分</div>
-                                    <div className="flex items-baseline">
-                                        <span className="text-3xl font-bold text-gray-900 tracking-tight">88.5</span>
-                                        <span className="ml-2 text-xs font-bold text-green-600 bg-green-50 px-2 py-0.5 rounded border border-green-100">等级 A</span>
-                                    </div>
-                                </div>
-                                <div className="text-right">
-                                    <div className="text-xs text-gray-500 mb-1">整体目标达成率</div>
-                                    <div className="text-sm font-bold text-blue-600">95%</div>
-                                </div>
-                            </div>
-
-                            {/* KEY FOCUS */}
-                            <div>
-                                <div className="text-xs font-bold text-gray-700 mb-3 flex items-center">
-                                    <Target size={14} className="mr-1.5 text-blue-500"/> 本周期重点
-                                </div>
-                                
-                                {/* Vertical Layout for Sidebar */}
-                                <div className="space-y-3">
-                                    {assessmentDetail.controversies.map(item => renderFocusNote(item, 'controversy'))}
-                                    {assessmentDetail.improvements.map(item => renderFocusNote(item, 'improvement'))}
-                                    {assessmentDetail.highlights.map(item => renderFocusNote(item, 'highlight'))}
-                                </div>
-
-                                <p className="mt-4 text-xs text-gray-500 leading-relaxed bg-gray-50 p-2.5 rounded border border-gray-100">
-                                    <span className="font-bold text-gray-700 flex items-center mb-1">
-                                        <Wand2 size={10} className="mr-1 text-purple-500" /> AI 总结：
-                                    </span>
-                                    整体表现稳健，执行力与协作力表现突出。主要矛盾集中在KPI认定规则的理解上，建议面谈时优先解决。
-                                </p>
-                            </div>
-                        </div>
+                    <div className="p-4 h-full overflow-y-auto custom-scrollbar bg-gray-50/50">
+                        <PerformanceAnalysisSummary assessmentDetail={assessmentDetail} />
                     </div>
                 )}
 

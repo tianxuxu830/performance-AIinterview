@@ -111,11 +111,42 @@ export interface DimensionItem {
   managerScore: number;
   weight: number;
   description?: string;
+  // New fields for analysis
+  score?: number; // Final score for the dimension
+  previousScore?: number;
+  averageScore?: number;
+  comparisonPrevious?: string; // e.g., "+3 (+4.48%)"
+  comparisonAverage?: string; // e.g., "+15.83 (Higher than avg 29.23%)"
+}
+
+export interface IndicatorItem {
+  id: string;
+  name: string;
+  score: number;
+  previousScore?: number;
+  averageScore?: number;
+  comparisonPrevious?: string;
+  comparisonAverage?: string;
+  selfScore?: number;
+  managerScore?: number;
+  weight?: number;
+  description?: string;
+  trend?: 'up' | 'down' | 'stable';
 }
 
 export interface AssessmentDetail {
   id: string; 
   description: string;
+  // Summary fields
+  performanceScore?: number;
+  performanceGrade?: string;
+  performanceCoefficient?: number;
+  percentile?: number;
+  
+  // Analysis Data
+  dimensions?: DimensionItem[];
+  indicators?: IndicatorItem[];
+  
   highlights: DimensionItem[];
   improvements: DimensionItem[];
   controversies: DimensionItem[];
@@ -124,6 +155,10 @@ export interface AssessmentDetail {
   kpiWeight?: number;
   okrs?: OKRItem[];
   kpis?: KPIItem[];
+  
+  // Trends
+  scoreTrend?: PerformanceTrend[];
+  coreIndicatorTrends?: { name: string, data: PerformanceTrend[] }[];
 }
 
 export interface AssessmentAttachment {
